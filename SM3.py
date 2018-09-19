@@ -1,76 +1,49 @@
-from  math import ceil
+from math import ceil
+import time
+from functools import reduce
 
-IV="7380166f 4914b2b9 172442d7 da8a0600 a96f30bc 163138aa e38dee4d b0fb0e4e"
+BIT_BLOCK_H = [0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xFF]
+BIT_BLOCK_L = [0x0, 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF]
+BIT_EACH = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+
+IV = "7380166f 4914b2b9 172442d7 da8a0600 a96f30bc 163138aa e38dee4d b0fb0e4e"
 IV = int(IV.replace(" ", ""), 16)
-a = []
-for i in range(0, 8):
-    a.append(0)
-    a[i] = (IV >> ((7 - i) * 32)) & 0xFFFFFFFF
-IV = a
+IV = [(IV >> ((7 - i) * 32)) & 0xFFFFFFFF for i in range(8)]
 
-def out_hex(list1):
-    for i in list1:
-        print("%08x" % i)
-    print("\n")
 
 def rotate_left(a, k):
     k = k % 32
     return ((a << k) & 0xFFFFFFFF) | ((a & 0xFFFFFFFF) >> (32 - k))
 
-T_j = []
-for i in range(0, 16):
-    T_j.append(0)
-    T_j[i] = 0x79cc4519
-for i in range(16, 64):
-    T_j.append(0)
-    T_j[i] = 0x7a879d8a
+
+T_j = [0x79cc4519] * 16
+T_j.extend([0x7a879d8a] * 48)
+
 
 def FF_j(X, Y, Z, j):
-    if 0 <= j and j < 16:
-        ret = X ^ Y ^ Z
-    elif 16 <= j and j < 64:
-        ret = (X & Y) | (X & Z) | (Y & Z)
-    return ret
+    return X ^ Y ^ Z if 0 <= j < 16 else (X & Y) | (X & Z) | (Y & Z)
+
 
 def GG_j(X, Y, Z, j):
-    if 0 <= j and j < 16:
-        ret = X ^ Y ^ Z
-    elif 16 <= j and j < 64:
-        #ret = (X | Y) & ((2 ** 32 - 1 - X) | Z)
-        ret = (X & Y) | ((~ X) & Z)
-    return ret
+    return X ^ Y ^ Z if 0 <= j < 16 else (X & Y) | ((~ X) & Z)
+
 
 def P_0(X):
     return X ^ (rotate_left(X, 9)) ^ (rotate_left(X, 17))
 
+
 def P_1(X):
     return X ^ (rotate_left(X, 15)) ^ (rotate_left(X, 23))
 
-def CF(V_i, B_i):
-    W = []
-    for i in range(16):
-        weight = 0x1000000
-        data = 0
-        for k in range(i*4,(i+1)*4):
-            data = data + B_i[k]*weight
-            weight = int(weight/0x100)
-        W.append(data)
 
+def CF(V_i, B_i):
+    W = [(B_i[ind] << 24) + (B_i[ind + 1] << 16) + (B_i[ind + 2] << 8) + (B_i[ind + 3]) for ind in range(0, 64, 4)]
     for j in range(16, 68):
-        W.append(0)
-        W[j] = P_1(W[j-16] ^ W[j-9] ^ (rotate_left(W[j-3], 15))) ^ (rotate_left(W[j-13], 7)) ^ W[j-6]
-        str1 = "%08x" % W[j]
-    W_1 = []
-    for j in range(0, 64):
-        W_1.append(0)
-        W_1[j] = W[j] ^ W[j+4]
-        str1 = "%08x" % W_1[j]
+        W.append(P_1(W[j - 16] ^ W[j - 9] ^ (rotate_left(W[j - 3], 15))) ^ (rotate_left(W[j - 13], 7)) ^ W[j - 6])
+
+    W_1 = [W[j] ^ W[j + 4] for j in range(64)]
 
     A, B, C, D, E, F, G, H = V_i
-    """
-    print "00",
-    out_hex([A, B, C, D, E, F, G, H])
-    """
     for j in range(0, 64):
         SS1 = rotate_left(((rotate_left(A, 12)) + E + (rotate_left(T_j[j], j))) & 0xFFFFFFFF, 7)
         SS2 = SS1 ^ (rotate_left(A, 12))
@@ -84,7 +57,6 @@ def CF(V_i, B_i):
         G = rotate_left(F, 19)
         F = E
         E = P_0(TT2)
-
         A = A & 0xFFFFFFFF
         B = B & 0xFFFFFFFF
         C = C & 0xFFFFFFFF
@@ -93,16 +65,8 @@ def CF(V_i, B_i):
         F = F & 0xFFFFFFFF
         G = G & 0xFFFFFFFF
         H = H & 0xFFFFFFFF
-        """
-        str1 = "%02d" % j
-        if str1[0] == "0":
-            str1 = ' ' + str1[1:]
-        print str1,
-        out_hex([A, B, C, D, E, F, G, H])
-        """
 
-    V_i_1 = []
-    V_i_1.append(A ^ V_i[0])
+    V_i_1 = [A ^ V_i[0]]
     V_i_1.append(B ^ V_i[1])
     V_i_1.append(C ^ V_i[2])
     V_i_1.append(D ^ V_i[3])
@@ -112,107 +76,95 @@ def CF(V_i, B_i):
     V_i_1.append(H ^ V_i[7])
     return V_i_1
 
+
 def hash_msg(msg):
     # print(msg)
     len1 = len(msg)
     reserve1 = len1 % 64
     msg.append(0x80)
-    reserve1 = reserve1 + 1
+    reserve1 += 1
     # 56-64, add 64 byte
-    range_end = 56
-    if reserve1 > range_end:
-        range_end = range_end + 64
+    range_end = 56 if reserve1 <= 56 else 120
+    msg.extend([0] * (range_end - reserve1))
 
-    for i in range(reserve1, range_end):
-        msg.append(0x00)
+    bit_length = len1 * 8
 
-    bit_length = (len1) * 8
     bit_length_str = [bit_length % 0x100]
     for i in range(7):
-        bit_length = int(bit_length / 0x100)
+        bit_length = bit_length // 0x100
         bit_length_str.append(bit_length % 0x100)
-    for i in range(8):
-        msg.append(bit_length_str[7-i])
+
+    bit_length_str.reverse()
+    msg.extend(bit_length_str)
 
     # print(msg)
 
     group_count = round(len(msg) / 64)
+    B = [msg[i * 64:i * 64 + 64] for i in range(group_count)]
+    B.insert(0, IV)
+    y = reduce(CF, B)
+    return "".join(['%08x' % i for i in y])
 
-    B = []
-    for i in range(0, group_count):
-        B.append(msg[i*64:(i+1)*64])
 
-    V = []
-    V.append(IV)
-    for i in range(0, group_count):
-        V.append(CF(V[i], B[i]))
-
-    y = V[i+1]
-    result = ""
-    for i in y:
-        result = '%s%08x' % (result, i)
-    return result
-
-def str2byte(msg): # 字符串转换成byte数组
-    ml = len(msg)
-    msg_byte = []
+def str2byte(msg):  # 字符串转换成byte数组
     msg_bytearray = msg.encode('utf-8')
-    for i in range(ml):
-        msg_byte.append(msg_bytearray[i])
-    return msg_byte
+    return list(msg_bytearray)
 
-def byte2str(msg): # byte数组转字符串
-    ml = len(msg)
-    str1 = b""
-    for i in range(ml):
-        str1 += b'%c' % msg[i]
+
+def byte2str(msg):  # byte数组转字符串
+    str1 = bytes(msg)
     return str1.decode('utf-8')
 
-def hex2byte(msg): # 16进制字符串转换成byte数组
+
+def hex2byte(msg):  # 16进制字符串转换成byte数组
     ml = len(msg)
     if ml % 2 != 0:
-        msg = '0'+ msg
-    ml = int(len(msg)/2)
+        msg = '0' + msg
+    ml = int(len(msg) / 2)
     msg_byte = []
     for i in range(ml):
-        msg_byte.append(int(msg[i*2:i*2+2],16))
+        msg_byte.append(int(msg[i * 2:i * 2 + 2], 16))
     return msg_byte
 
-def byte2hex(msg): # byte数组转换成16进制字符串
+
+def byte2hex(msg):  # byte数组转换成16进制字符串
     ml = len(msg)
     hexstr = ""
     for i in range(ml):
-        hexstr = hexstr + ('%02x'% msg[i])
+        hexstr = hexstr + ('%02x' % msg[i])
     return hexstr
 
-def Hash_sm3(msg,Hexstr = 0):
-    if(Hexstr):
+
+def Hash_sm3(msg, Hexstr=0):
+    if (Hexstr):
         msg_byte = hex2byte(msg)
     else:
         msg_byte = str2byte(msg)
     return hash_msg(msg_byte)
 
 
-def KDF(Z,klen): # Z为16进制表示的比特串（str），klen为密钥长度（单位byte）
+def KDF(Z, klen):  # Z为16进制表示的比特串（str），klen为密钥长度（单位byte）
     klen = int(klen)
     ct = 0x00000001
-    rcnt = ceil(klen/32)
+    rcnt = ceil(klen / 32)
     Zin = hex2byte(Z)
     Ha = ""
     for i in range(rcnt):
-        msg = Zin  + hex2byte('%08x'% ct)
+        msg = Zin + hex2byte('%08x' % ct)
         # print(msg)
         Ha = Ha + hash_msg(msg)
         # print(Ha)
         ct += 1
     return Ha[0: klen * 2]
 
-if __name__ == '__main__':
-    y = Hash_sm3("abc")
-    print(y)
 
+if __name__ == '__main__':
+    a = "abc"
+    st = time.clock()
+    y = Hash_sm3(a)
+    et = time.clock()
+    print(y)
+    print(et - st)
+    # print("\n\n")
     # klen = 19
     # print(KDF("57E7B63623FAE5F08CDA468E872A20AFA03DED41BF1403770E040DC83AF31A67991F2B01EBF9EFD8881F0A0493000603", klen))
-
-
-
