@@ -8,4 +8,4 @@
 # @Software: PyCharm
 
 from pysmx import SM4, SM3, SM2
-__version__ = '0.1.0'
+__version__ = '0.1.1.alpha'

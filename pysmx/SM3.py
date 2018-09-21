@@ -106,7 +106,7 @@ def hash_msg(msg):
 
 
 def str2byte(msg):  # 字符串转换成byte数组
-    msg_bytearray = msg.encode('utf-8')
+    msg_bytearray = msg.encode('utf-8') if isinstance(msg, str) else msg
     return list(msg_bytearray)
 
 
@@ -158,7 +158,7 @@ def KDF(Z, klen):  # Z为16进制表示的比特串（str），klen为密钥长�
 
 
 if __name__ == '__main__':
-    a = "abc"
+    a = bytes("abc", encoding='utf8')
     st = time.clock()
     y = Hash_sm3(a)
     et = time.clock()
