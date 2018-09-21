@@ -101,8 +101,7 @@ def hash_msg(msg):
 
     group_count = round(len(msg) / 64)
     B = [msg[i * 64:i * 64 + 64] for i in range(group_count)]
-    B.insert(0, IV)
-    y = reduce(CF, B)
+    y = reduce(CF, B, IV)
     return "".join(['%08x' % i for i in y])
 
 
