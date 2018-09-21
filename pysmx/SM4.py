@@ -184,25 +184,12 @@ class Sm4(object):
         output_data = []
         tmp_input = [0]*16
         if self.mode == ENCRYPT:
-            iv2 = copy.deepcopy(iv)
-            s0 = time.clock()
             while length > 0:
                 tmp_input[0:16] = XOR(input_data[i:i+16], iv[0:16])
                 output_data += self.sm4_one_round(self.sk, tmp_input[0:16])
                 iv = copy.deepcopy(output_data[i:i+16])
                 i += 16
                 length -= 16
-            st = time.clock()
-            pre_list = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
-            pre_output_data = (map(lambda x: self.sm4_one_round(self.sk, x), pre_list))
-            v = reduce(_f, pre_output_data, [iv2,[]])
-            output_data_2 = v[1]
-            et = time.clock()
-
-            print(st-s0)
-            print(et-st)
-            a = 1
-            # output_data_2 = reduce(lambda x, y: XOR(x, y), pre_output_data, iv)
         else:
             while length > 0:
                 output_data += self.sm4_one_round(self.sk, input_data[i:i+16])
@@ -210,11 +197,6 @@ class Sm4(object):
                 iv = copy.deepcopy(input_data[i:i + 16])
                 i += 16
                 length -= 16
-
-            pre_list = [input_data[i:i+16] for i in range(0,len(input_data),16)]
-            pre_output_data = (map(lambda x:self.sm4_one_round(self.sk,x), pre_list))
-
-            output_data_2 = reduce(lambda x,y:XOR(x,y), pre_output_data, [iv,[]])
         return output_data
 
 

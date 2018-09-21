@@ -1,5 +1,5 @@
 from random import choice
-import SM3
+from pysmx import SM3
 
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
