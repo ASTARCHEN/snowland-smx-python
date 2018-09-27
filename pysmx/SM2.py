@@ -1,6 +1,7 @@
 from random import choice
 from pysmx import SM3
-
+from functools import reduce
+import time
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
 sm2_P = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF', 16)
@@ -30,23 +31,7 @@ def get_random_str(strlen):
 
 def kG(k, Point, len_para):  # kP运算
     Point = '%s%s' % (Point, '1')
-    mask_str = '8'
-    for i in range(len_para - 1):
-        mask_str += '0'
-    # print(mask_str)
-    mask = int(mask_str, 16)
-    Temp = Point
-    flag = False
-    for n in range(len_para * 4):
-        if (flag):
-            Temp = DoublePoint(Temp, len_para)
-        if (k & mask) != 0:
-            if (flag):
-                Temp = AddPoint(Temp, Point, len_para)
-            else:
-                flag = True
-                Temp = Point
-        k = k << 1
+    Temp = reduce(lambda x, y:AddPoint(DoublePoint(x, len_para), Point, len_para) if y is '1' else DoublePoint(x, len_para), bin(k)[3:], Point)
     return ConvertJacb2Nor(Temp, len_para)
 
 
@@ -58,10 +43,7 @@ def DoublePoint(Point, len_para):  # 倍点
     else:
         x1 = int(Point[0:len_para], 16)
         y1 = int(Point[len_para:len_2], 16)
-        if l == len_2:
-            z1 = 1
-        else:
-            z1 = int(Point[len_2:], 16)
+        z1 = 1 if l == len_2 else int(Point[len_2:], 16)
         T6 = (z1 * z1) % sm2_P
         T2 = (y1 * y1) % sm2_P
         T3 = (x1 + T6) % sm2_P
@@ -78,12 +60,7 @@ def DoublePoint(Point, len_para):  # 倍点
         T3 = (T1 * T1) % sm2_P
         T2 = (T2 * T4) % sm2_P
         x3 = (T3 - T5) % sm2_P
-
-        if (T5 % 2) == 1:
-            T4 = (T5 + ((T5 + sm2_P) >> 1) - T3) % sm2_P
-        else:
-            T4 = (T5 + (T5 >> 1) - T3) % sm2_P
-
+        T4 = (T5 + ((T5 + sm2_P) >> 1) - T3) % sm2_P if T5 % 2 else (T5 + (T5 >> 1) - T3) % sm2_P
         T1 = (T1 * T4) % sm2_P
         y3 = (T1 - T2) % sm2_P
 
@@ -101,10 +78,7 @@ def AddPoint(P1, P2, len_para):  # 点加函数，P2点为仿射坐标即z=1，P
     else:
         X1 = int(P1[0:len_para], 16)
         Y1 = int(P1[len_para:len_2], 16)
-        if (l1 == len_2):
-            Z1 = 1
-        else:
-            Z1 = int(P1[len_2:], 16)
+        Z1 = 1 if l1 == len_2 else int(P1[len_2:], 16)
         x2 = int(P2[0:len_para], 16)
         y2 = int(P2[len_para:len_2], 16)
 
@@ -155,9 +129,7 @@ def ConvertJacb2Nor(Point, len_para):  # Jacobian加重射影坐标转换成仿�
 
 def Inverse(data, M, len_para):  # 求逆，可用pow（）代替
     tempM = M - 2
-    mask_str = '8'
-    for i in range(len_para - 1):
-        mask_str += '0'
+    mask_str = '8' + '0'*(len_para - 1)
     mask = int(mask_str, 16)
     tempA = 1
     tempB = data

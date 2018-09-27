@@ -119,41 +119,25 @@ def hex2byte(msg):  # 16进制字符串转换成byte数组
     ml = len(msg)
     if ml % 2 != 0:
         msg = '0' + msg
-    ml = int(len(msg) / 2)
-    msg_byte = []
-    for i in range(ml):
-        msg_byte.append(int(msg[i * 2:i * 2 + 2], 16))
+    ml = len(msg) // 2
+    msg_byte = [(int(msg[i * 2:i * 2 + 2], 16)) for i in range(ml)]
     return msg_byte
 
 
 def byte2hex(msg):  # byte数组转换成16进制字符串
-    ml = len(msg)
-    hexstr = ""
-    for i in range(ml):
-        hexstr = hexstr + ('%02x' % msg[i])
-    return hexstr
+    return "".join(['%02x' % each for each in msg])
 
 
 def Hash_sm3(msg, Hexstr=0):
-    if (Hexstr):
-        msg_byte = hex2byte(msg)
-    else:
-        msg_byte = str2byte(msg)
+    msg_byte = hex2byte(msg) if Hexstr else str2byte(msg)
     return hash_msg(msg_byte)
 
 
 def KDF(Z, klen):  # Z为16进制表示的比特串（str），klen为密钥长度（单位byte）
     klen = int(klen)
-    ct = 0x00000001
-    rcnt = ceil(klen / 32)
+    rcnt = int(ceil(klen / 32))
     Zin = hex2byte(Z)
-    Ha = ""
-    for i in range(rcnt):
-        msg = Zin + hex2byte('%08x' % ct)
-        # print(msg)
-        Ha = Ha + hash_msg(msg)
-        # print(Ha)
-        ct += 1
+    Ha = "".join([hash_msg(Zin + hex2byte('%08x' % ct)) for ct in range(1, rcnt+1)])
     return Ha[0: klen * 2]
 
 
@@ -165,5 +149,5 @@ if __name__ == '__main__':
     print(y)
     print(et - st)
     # print("\n\n")
-    # klen = 19
-    # print(KDF("57E7B63623FAE5F08CDA468E872A20AFA03DED41BF1403770E040DC83AF31A67991F2B01EBF9EFD8881F0A0493000603", klen))
+    klen = 19
+    print(KDF("57E7B63623FAE5F08CDA468E872A20AFA03DED41BF1403770E040DC83AF31A67991F2B01EBF9EFD8881F0A0493000603", klen))

@@ -87,13 +87,13 @@ def sm4Sbox(idx):
 # args:    [in] a: a is a 32 bits unsigned value;
 # return: sk[i]: i{0,1,2,3,...31}.
 def sm4CalciRK(ka):
-    b = [0, 0, 0, 0]
     a = PUT_UINT32_BE(ka)
+    b = [0, 0, 0, 0]
     b[0] = sm4Sbox(a[0])
     b[1] = sm4Sbox(a[1])
     b[2] = sm4Sbox(a[2])
     b[3] = sm4Sbox(a[3])
-    bb = GET_UINT32_BE(b[0:4])
+    bb = GET_UINT32_BE(b)
     rk = bb ^ (ROTL(bb, 13)) ^ (ROTL(bb, 23))
     return rk
 
@@ -109,7 +109,7 @@ def sm4Lt(ka):
     b[1] = sm4Sbox(a[1])
     b[2] = sm4Sbox(a[2])
     b[3] = sm4Sbox(a[3])
-    bb = GET_UINT32_BE(b[0:4])
+    bb = GET_UINT32_BE(b)
     c = bb ^ (ROTL(bb, 2)) ^ (ROTL(bb, 10)) ^ (ROTL(bb, 18)) ^ (ROTL(bb, 24))
     return c
 
