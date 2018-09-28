@@ -1,4 +1,4 @@
-from random import choice
+from random import choices
 from pysmx import SM3
 from functools import reduce
 import time
@@ -21,16 +21,12 @@ Fp = 256
 # Fp = 192
 
 def get_random_str(strlen):
-    letterlist = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f']
-    str = ''
-    for i in range(strlen):
-        a = choice(letterlist)
-        str = '%s%s' % (str, a)
-    return str
+    letterlist = "0123456789abcdef"
+    return ''.join(choices(letterlist, k=64))
 
 
 def kG(k, Point, len_para):  # kP运算
-    Point = '%s%s' % (Point, '1')
+    Point += '1'
     Temp = reduce(lambda x, y:AddPoint(DoublePoint(x, len_para), Point, len_para) if y is '1' else DoublePoint(x, len_para), bin(k)[3:], Point)
     return ConvertJacb2Nor(Temp, len_para)
 
@@ -156,10 +152,10 @@ def Verify(Sign, E, PA, len_para):  # 验签函数，Sign签名r||s，E消息has
     # print(P1)
     # print(P2)
     if P1 == P2:
-        P1 = '%s%s' % (P1, 1)
+        P1 += 1
         P1 = DoublePoint(P1, len_para)
     else:
-        P1 = '%s%s' % (P1, 1)
+        P1 += '1'
         P1 = AddPoint(P1, P2, len_para)
         P1 = ConvertJacb2Nor(P1, len_para)
 
@@ -186,10 +182,7 @@ def Sign(E, DA, K, len_para, Hexstr=0):  # 签名函数, E消息的hash，DA私�
         return None
     d_1 = pow(d + 1, sm2_N - 2, sm2_N)
     S = (d_1 * (k + R) - R) % sm2_N
-    if S == 0:
-        return None
-    else:
-        return '%064x%064x' % (R, S)
+    return '%064x%064x' % (R, S) if S else None
 
 
 def Encrypt(M, PA, len_para, Hexstr=0):  # 加密函数，M消息，PA公钥
