@@ -20,9 +20,9 @@ Fp = 256
 # sm2_a_3 = (sm2_a + 3) % sm2_P # 倍点用到的中间值
 # Fp = 192
 
-def get_random_str(strlen):
+def get_random_str(strlen=64):
     letterlist = "0123456789abcdef"
-    return ''.join(choices(letterlist, k=64))
+    return ''.join(choices(letterlist, k=strlen))
 
 
 def kG(k, Point, len_para):  # kP运算

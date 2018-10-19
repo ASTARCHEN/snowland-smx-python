@@ -40,7 +40,6 @@ def CF(V_i, B_i):
     W = [(B_i[ind] << 24) + (B_i[ind + 1] << 16) + (B_i[ind + 2] << 8) + (B_i[ind + 3]) for ind in range(0, 64, 4)]
     for j in range(16, 68):
         W.append(P_1(W[j - 16] ^ W[j - 9] ^ (rotate_left(W[j - 3], 15))) ^ (rotate_left(W[j - 13], 7)) ^ W[j - 6])
-
     W_1 = [W[j] ^ W[j + 4] for j in range(64)]
 
     A, B, C, D, E, F, G, H = V_i
@@ -49,23 +48,8 @@ def CF(V_i, B_i):
         SS2 = SS1 ^ (rotate_left(A, 12))
         TT1 = (FF_j(A, B, C, j) + D + SS2 + W_1[j]) & 0xFFFFFFFF
         TT2 = (GG_j(E, F, G, j) + H + SS1 + W[j]) & 0xFFFFFFFF
-        D = C
-        C = rotate_left(B, 9)
-        B = A
-        A = TT1
-        H = G
-        G = rotate_left(F, 19)
-        F = E
-        E = P_0(TT2)
-        A = A & 0xFFFFFFFF
-        B = B & 0xFFFFFFFF
-        C = C & 0xFFFFFFFF
-        D = D & 0xFFFFFFFF
-        E = E & 0xFFFFFFFF
-        F = F & 0xFFFFFFFF
-        G = G & 0xFFFFFFFF
-        H = H & 0xFFFFFFFF
-
+        A, B, C, D, E, F, G, H = TT1, A, rotate_left(B, 9) & 0xffffffff, C, P_0(
+            TT2) & 0xffffffff, E, rotate_left(F, 19) & 0xffffffff, G
     V_i_1 = [A ^ V_i[0]]
     V_i_1.append(B ^ V_i[1])
     V_i_1.append(C ^ V_i[2])
@@ -98,9 +82,7 @@ def hash_msg(msg):
     msg.extend(bit_length_str)
 
     # print(msg)
-
-    group_count = round(len(msg) / 64)
-    B = [msg[i * 64:i * 64 + 64] for i in range(group_count)]
+    B = [msg[i:i + 64] for i in range(0, len(msg), 64)]
     y = reduce(CF, B, IV)
     return "".join(['%08x' % i for i in y])
 
@@ -119,8 +101,7 @@ def hex2byte(msg):  # 16进制字符串转换成byte数组
     ml = len(msg)
     if ml % 2 != 0:
         msg = '0' + msg
-    ml = len(msg) // 2
-    msg_byte = [(int(msg[i * 2:i * 2 + 2], 16)) for i in range(ml)]
+    msg_byte = [(int(msg[i:i + 2], 16)) for i in range(0, len(msg), 2)]
     return msg_byte
 
 
@@ -137,7 +118,7 @@ def KDF(Z, klen):  # Z为16进制表示的比特串（str），klen为密钥长�
     klen = int(klen)
     rcnt = int(ceil(klen / 32))
     Zin = hex2byte(Z)
-    Ha = "".join([hash_msg(Zin + hex2byte('%08x' % ct)) for ct in range(1, rcnt+1)])
+    Ha = "".join([hash_msg(Zin + hex2byte('%08x' % ct)) for ct in range(1, rcnt + 1)])
     return Ha[0: klen * 2]
 
 
