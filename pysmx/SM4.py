@@ -115,7 +115,7 @@ def sm4Lt(ka):
 # args:    [in] rk: encryption/decryption key;
 # return the contents of encryption/decryption contents.
 def sm4F(x0, x1, x2, x3, rk):
-    return (x0 ^ sm4Lt(x1 ^ x2 ^ x3 ^ rk))
+    return x0 ^ sm4Lt(x1 ^ x2 ^ x3 ^ rk)
 
 
 class Sm4(object):
@@ -134,18 +134,21 @@ class Sm4(object):
         MK[2] = GET_UINT32_BE(key[8:12])
         MK[3] = GET_UINT32_BE(key[12:16])
         k[0:4] = XOR(MK, FK)
+        item = k[1] ^ k[2]
         for i in range(32):
-            k[i + 4] = k[i] ^ (sm4CalciRK(k[i + 1] ^ k[i + 2] ^ k[i + 3] ^ CK[i]))
+            item = item ^ k[i + 3]
+            k[i + 4] = k[i] ^ sm4CalciRK(item ^ CK[i])
+            item = item ^ k[i + 1]
         self.sk = k[4:]
         self.mode = mode
         if mode == DECRYPT:
             self.sk.reverse()
 
     def sm4_one_round(self, sk, in_put):
-        item = [GET_UINT32_BE(in_put[0:4]), GET_UINT32_BE(in_put[4:8]), GET_UINT32_BE(in_put[8:12]),
-                GET_UINT32_BE(in_put[12:16])]
-        res = reduce(lambda x, y: [x[1], x[2], x[3], sm4F(x[0], x[1], x[2], x[3], y)], sk, item)
-        res.reverse()
+        item = [GET_UINT32_BE(in_put[12:16]), GET_UINT32_BE(in_put[8:12]), GET_UINT32_BE(in_put[4:8]),
+                GET_UINT32_BE(in_put[0:4])]
+
+        res = reduce(lambda x, y: [sm4F(x[3], x[2], x[1], x[0], y), x[0], x[1], x[2]], sk, item)
         rev = map(PUT_UINT32_BE, res)
         out_put = []
         [out_put.extend(_) for _ in rev]
@@ -172,12 +175,11 @@ class Sm4(object):
                 i += 16
                 length -= 16
         else:
-            while length > 0:
-                output_data += self.sm4_one_round(self.sk, input_data[i:i + 16])
-                output_data[i:i + 16] = XOR(output_data[i:i + 16], iv[0:16])
-                iv = copy.deepcopy(input_data[i:i + 16])
-                i += 16
-                length -= 16
+            ivs = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
+            ivs.insert(0, iv)
+            tmp = map(lambda x: self.sm4_one_round(self.sk, x), ivs[1:])
+            out = map(XOR, tmp, ivs[:-1])
+            [output_data.extend(_) for _ in out]
         return output_data
 
 
@@ -228,11 +230,11 @@ if __name__ == "__main__":
         print("cbc check fail")
         raise BaseException("error")
     # file test
-    file_path = r"test2.txt"
-    ecb_path_en = r"test2k_ecb_en.txt"
-    ecb_path_de = r"test2k_ecb_de.txt"
-    cbc_path_en = r"test2k_cbc_en.txt"
-    cbc_path_de = r"test2k_cbc_de.txt"
+    file_path = r"../test2.txt"
+    ecb_path_en = r"../test2k_ecb_en.txt"
+    ecb_path_de = r"../test2k_ecb_de.txt"
+    cbc_path_en = r"../test2k_cbc_en.txt"
+    cbc_path_de = r"../test2k_cbc_de.txt"
 
     key_data = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]
@@ -246,12 +248,12 @@ if __name__ == "__main__":
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key_data, ENCRYPT)
     en_data = sm4_d.sm4_crypt_ecb(file_data_list)
-    with open(ecb_path_en, 'w+b') as f:
+    with open(ecb_path_en, 'wb') as f:
         f.write(bytes(en_data))
 
     sm4_d.sm4_set_key(key_data, DECRYPT)
     de_data = sm4_d.sm4_crypt_ecb(en_data)
-    with open(ecb_path_de, 'w+b') as f:
+    with open(ecb_path_de, 'wb') as f:
         f.write(bytes(de_data))
     if de_data == file_data_list:
         print("file decode pass")
@@ -262,12 +264,12 @@ if __name__ == "__main__":
     # 2. CBC
     sm4_d.sm4_set_key(key_data, ENCRYPT)
     en_data = sm4_d.sm4_crypt_cbc(iv_data, file_data_list)
-    with open(cbc_path_en, 'w+b') as f:
+    with open(cbc_path_en, 'wb') as f:
         f.write(bytes(en_data))
 
     sm4_d.sm4_set_key(key_data, DECRYPT)
     de_data = sm4_d.sm4_crypt_cbc(iv_data, en_data)
-    with open(cbc_path_de, 'w+b') as f:
+    with open(cbc_path_de, 'wb') as f:
         f.write(bytes(de_data))
     if de_data == file_data_list:
         print("file decode pass")
