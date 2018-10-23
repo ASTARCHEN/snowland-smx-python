@@ -62,7 +62,7 @@ def rotl_uint31(a, shift):
 
 
 def rotl_uint32(a, shift):
-    return (a << shift) | (a >> (32 - shift))
+    return ((a << shift) | (a >> (32 - shift))) & 0xFFFFFFFF
 
 
 def l1(x):
@@ -74,111 +74,110 @@ def l2(x):
 
 
 def make_uint32(a, b, c, d):
-    return ((a << 24) | (b << 16) | (c << 8) | d)
+    return ((a << 24) & 0xffffffff) | ((b << 16) & 0xffffffff) | ((c << 8) & 0xffffffff) | d
 
 
 def make_uint31(a, b, c):
-    return (a << 23) | (b << 8) | c
+    return ((a << 23) & 0x7fffffff) | ((b << 8) & 0x7fffffff) | c
 
 
-def lfsr_next(lfsr):
-    f = lfsr[0]
-    v = rotl_uint31(lfsr[0], 8)
-    f = addition_uint31(f, v)
-    v = rotl_uint31(lfsr[4], 20)
-    f = addition_uint31(f, v)
-    v = rotl_uint31(lfsr[10], 21)
-    f = addition_uint31(f, v)
-    v = rotl_uint31(lfsr[13], 17)
-    f = addition_uint31(f, v)
-    v = rotl_uint31(lfsr[15], 15)
-    f = addition_uint31(f, v)
-    return f
+class ZUC(object):
+    def __init__(self, key, iv):
+        self.r = [0, 0]
+        self.lfsr = [0 for _ in range(16)]
+        self.x = [0, 0, 0, 0]
+        self.zuc_init(key, iv)
 
+    def bit_reorganization(self):
+        self.x[0] = ((self.lfsr[15] & 0x7FFF8000) << 1) | (self.lfsr[14] & 0xFFFF)
+        self.x[1] = ((self.lfsr[11] & 0xFFFF) << 16) | (self.lfsr[9] >> 15)
+        self.x[2] = ((self.lfsr[7] & 0xFFFF) << 16) | (self.lfsr[5] >> 15)
+        self.x[3] = ((self.lfsr[2] & 0xFFFF) << 16) | (self.lfsr[0] >> 15)
 
-def lfsr_append(lfsr: list, f):
-    # TODO check
-    # memmove(&lfsr[0], &lfsr[1], 15 * sizeof())
-    lfsr.insert(0, f)
-    if len(lfsr) == 16:
-        lfsr.pop()
-    return lfsr
+    def lfsr_next(self):
+        f = self.lfsr[0]
+        v = rotl_uint31(self.lfsr[0], 8)
+        f = addition_uint31(f, v)
+        v = rotl_uint31(self.lfsr[4], 20)
+        f = addition_uint31(f, v)
+        v = rotl_uint31(self.lfsr[10], 21)
+        f = addition_uint31(f, v)
+        v = rotl_uint31(self.lfsr[13], 17)
+        f = addition_uint31(f, v)
+        v = rotl_uint31(self.lfsr[15], 15)
+        f = addition_uint31(f, v)
+        return f
 
+    def lfsr_append(self, f):
+        self.lfsr.append(f)
+        if len(self.lfsr) > 16:
+            self.lfsr.pop(0)
 
-def lfsr_init(lfsr, u):
-    lfsr_append(lfsr, addition_uint31(lfsr_next(lfsr), u))
+    def lfsr_init(self, u):
+        self.lfsr_append(addition_uint31(self.lfsr_next(), u))
 
+    def lfsr_shift(self):
+        self.lfsr_append(self.lfsr_next())
 
-def lfsr_shift(lfsr):
-    lfsr_append(lfsr, lfsr_next(lfsr))
+    def f(self):
+        W = ((self.x[0] ^ self.r[0]) + self.r[1]) & 0xffffffff
+        W1 = (self.r[0] + self.x[1]) & 0xffffffff
+        W2 = self.r[1] ^ self.x[2]
+        u = l1(((W1 & 0x0000ffff) << 16) | (W2 >> 16))
+        v = l2(((W2 & 0x0000ffff) << 16) | (W1 >> 16))
+        self.r = [make_uint32(S0[u >> 24], S1[(u >> 16) & 0xFF],
+                                S0[(u >> 8) & 0xFF], S1[u & 0xFF]),
+                    make_uint32(S0[v >> 24], S1[(v >> 16) & 0xFF],
+                                S0[(v >> 8) & 0xFF], S1[v & 0xFF])]
+        return W
 
+    def zuc_init(self, key, iv):
+        # Expand key.
+        self.lfsr = [make_uint31(key[i], D[i], iv[i]) for i in range(16)]
+        self.r = [0, 0]
+        for i in range(32):
+            self.bit_reorganization()
+            w = self.f()
+            self.lfsr_init(w >> 1)
 
-def f(context):
-    W = (context.x[0] ^ context.r[0]) + context.r[1]
-    W1 = context.r[0] + context.x[1]
-    W2 = context.r[1] ^ context.x[2]
-    u = l1((W1 << 16) | (W2 >> 16))
-    v = l2((W2 << 16) | (W1 >> 16))
-    context.r[0] = make_uint32(S0[u >> 24], S1[(u >> 16) & 0xFF],
-                               S0[(u >> 8) & 0xFF], S1[u & 0xFF])
-    context.r[1] = make_uint32(S0[v >> 24], S1[(v >> 16) & 0xFF],
-                               S0[(v >> 8) & 0xFF], S1[v & 0xFF])
-    return W
+    def zuc_generate_keystream(self, keystream_buffer):
+        self.bit_reorganization()
+        self.f()  # Discard the output of F.
+        self.lfsr_shift()
+        for i, _ in enumerate(keystream_buffer):
+            self.bit_reorganization()
+            keystream_buffer[i] = self.f() ^ self.x[3]
+            self.lfsr_shift()
+        return keystream_buffer
 
+    def zuc_encrypt(self, input):
+        keystream_buffer = [0] * 4
+        length = len(input)
+        output = [0] * length
+        self.bit_reorganization()
+        self.f()  # Discard the output of F.
+        self.lfsr_shift()
+        for i in range(0, length):
+            buffer_index = i % 4
+            if buffer_index == 0:
+                for ind, _ in enumerate(keystream_buffer):
+                    self.bit_reorganization()
+                    keystream_buffer[ind] = self.f() ^ self.x[3]
+                    self.lfsr_shift()
 
-def bit_reorganization(context):
-    context.x[0] = ((context.lfsr[15] & 0x7FFF8000) << 1) | (context.lfsr[14] & 0xFFFF)
-    context.x[1] = ((context.lfsr[11] & 0xFFFF) << 16) | (context.lfsr[9] >> 15)
-    context.x[2] = ((context.lfsr[7] & 0xFFFF) << 16) | (context.lfsr[5] >> 15)
-    context.x[3] = ((context.lfsr[2] & 0xFFFF) << 16) | (context.lfsr[0] >> 15)
+            output[i] = input[i] ^ keystream_buffer[buffer_index]
+        return output
 
-# class ZUC(object):
-    # def __init__(self):
-    #     self.context = []
-    #     self
-def zuc_init(context, key, iv):
-    # Expand key.
-    for i in range(16):
-        context.lfsr[i] = make_uint31(key[i], D[i], iv[i])
-
-    context.r = [0, 0]
-    for i in range(32):
-        bit_reorganization(context)
-        w = f(context)
-        lfsr_init(context.lfsr, w >> 1)
-    return context
-
-
-def zuc_generate_keystream(context, keystream_buffer):
-    # keystream_length = len(keystream_buffer)
-    bit_reorganization(context)
-    f(context)  # Discard the output of F.
-    lfsr_shift(context.lfsr)
-    for i, buffer in enumerate(keystream_buffer):
-        bit_reorganization(context)
-        keystream_buffer[i] = f(context) ^ context.x[3]
-        lfsr_shift(context.lfsr)
-
-
-def zuc_encrypt(context, input):
-    buffer = [0] * 4
-    length = len(input)
-    output = [0] * length
-    bit_reorganization(context)
-    f(context)  # Discard the output of F.
-    lfsr_shift(context.lfsr)
-    for i in range(length):
-        buffer_index = i % 4
-        if (buffer_index == 0):
-            bit_reorganization(context)
-            buffer = f(context) ^ context.x[3]
-            lfsr_shift(context.lfsr)
-
-        output[i] = input[i] ^ buffer[buffer_index]
-    return output
 
 if '__main__' == __name__:
-    key = [0]*16
-    iv = [0]*16
-    zuc_init(key=key, iv=iv)
-    zuc_generate_keystream()
+    key = [0x00] * 16
+    iv = [0x00] * 16
+    zuc = ZUC(key, iv)
+    # 加密过程
+    out = zuc.zuc_encrypt(b"i love u")
+    print("加密得到的字节流", ["%08x" % e for e in out])
+    # 解密过程
+    zuc2 = ZUC(key, iv)
+    out2 = zuc2.zuc_encrypt(out)
+    print("解密得到的字节流", ["%08x" % e for e in out2])
+    print(bytes(out2))
