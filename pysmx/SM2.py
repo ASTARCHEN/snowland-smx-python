@@ -161,7 +161,7 @@ def Verify(Sign, E, PA, len_para):  # 验签函数，Sign签名r||s，E消息has
     # print(P1)
     # print(P2)
     if P1 == P2:
-        P1 += 1
+        P1 += '1'
         P1 = DoublePoint(P1, len_para)
     else:
         P1 += '1'

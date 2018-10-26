@@ -85,22 +85,22 @@ def str2byte(msg):  # 字符串转换成byte数组
     return list(msg_bytearray)
 
 
-def byte2str(msg):
+def byte2str(msg, decode='utf-8'):
     """
     byte数组转字符串
     :param msg:
+    :param decode:
     :return:
     """
     str1 = bytes(msg)
-    return str1.decode('utf-8')
+    return str1.decode(decode)
 
 
-def hex2byte(msg):  # 16进制字符串转换成byte数组
+def hex2byte(msg):  # 16进制字符串转换成byte列表
     ml = len(msg)
     if ml % 2 != 0:
         msg = '0' + msg
-    msg_byte = [(int(msg[i:i + 2], 16)) for i in range(0, ml, 2)]
-    return msg_byte
+    return list(bytes.fromhex(msg))
 
 
 def byte2hex(msg):  # byte数组转换成16进制字符串
@@ -128,7 +128,7 @@ def KDF(Z, klen):
 if __name__ == '__main__':
     a = bytes("abc", encoding='utf8')
     st = time.clock()
-    y = Hash_sm3(a)
+    y = Hash_sm3("abc", 0)
     et = time.clock()
     print("sm3:", y)
     print("time:", et - st)

@@ -136,9 +136,9 @@ class Sm4(object):
         k[0:4] = XOR(MK, FK)
         item = k[1] ^ k[2]
         for i in range(32):
-            item = item ^ k[i + 3]
+            item ^= k[i + 3]
             k[i + 4] = k[i] ^ sm4CalciRK(item ^ CK[i])
-            item = item ^ k[i + 1]
+            item ^= k[i + 1]
         self.sk = k[4:]
         self.mode = mode
         if mode == DECRYPT:
