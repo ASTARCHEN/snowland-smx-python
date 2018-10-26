@@ -12,7 +12,7 @@ IV = [(IV >> ((7 - i) * 32)) & 0xFFFFFFFF for i in range(8)]
 
 
 def rotate_left(a, k):
-    k = k % 32
+    k %= 32
     return ((a << k) & 0xFFFFFFFF) | ((a & 0xFFFFFFFF) >> (32 - k))
 
 
@@ -41,8 +41,8 @@ def CF(V_i, B_i):
     for j in range(16, 68):
         W.append(P_1(W[j - 16] ^ W[j - 9] ^ (rotate_left(W[j - 3], 15))) ^ (rotate_left(W[j - 13], 7)) ^ W[j - 6])
     W_1 = [W[j] ^ W[j + 4] for j in range(64)]
-
     A, B, C, D, E, F, G, H = V_i
+
     for j in range(0, 64):
         SS1 = rotate_left(((rotate_left(A, 12)) + E + (rotate_left(T_j[j], j))) & 0xFFFFFFFF, 7)
         SS2 = SS1 ^ (rotate_left(A, 12))
@@ -50,37 +50,30 @@ def CF(V_i, B_i):
         TT2 = (GG_j(E, F, G, j) + H + SS1 + W[j]) & 0xFFFFFFFF
         A, B, C, D, E, F, G, H = TT1, A, rotate_left(B, 9) & 0xffffffff, C, P_0(
             TT2) & 0xffffffff, E, rotate_left(F, 19) & 0xffffffff, G
-    V_i_1 = [A ^ V_i[0]]
-    V_i_1.append(B ^ V_i[1])
-    V_i_1.append(C ^ V_i[2])
-    V_i_1.append(D ^ V_i[3])
-    V_i_1.append(E ^ V_i[4])
-    V_i_1.append(F ^ V_i[5])
-    V_i_1.append(G ^ V_i[6])
-    V_i_1.append(H ^ V_i[7])
-    return V_i_1
+    V_i[0] ^= A
+    V_i[1] ^= B
+    V_i[2] ^= C
+    V_i[3] ^= D
+    V_i[4] ^= E
+    V_i[5] ^= F
+    V_i[6] ^= G
+    V_i[7] ^= H
+    return V_i
 
 
 def hash_msg(msg):
     # print(msg)
     len1 = len(msg)
-    reserve1 = len1 % 64
     msg.append(0x80)
-    reserve1 += 1
-    # 56-64, add 64 byte
+    reserve1 = len1 % 64 + 1
     range_end = 56 if reserve1 <= 56 else 120
     msg.extend([0] * (range_end - reserve1))
-
     bit_length = len1 * 8
-
-    bit_length_str = [bit_length % 0x100]
-    for i in range(7):
-        bit_length = bit_length // 0x100
-        bit_length_str.append(bit_length % 0x100)
-
-    bit_length_str.reverse()
+    bit_length_str = []
+    for i in range(8):
+        bit_length, t = divmod(bit_length, 0x100)
+        bit_length_str.insert(0, t)
     msg.extend(bit_length_str)
-
     # print(msg)
     B = [msg[i:i + 64] for i in range(0, len(msg), 64)]
     y = reduce(CF, B, IV)
@@ -92,7 +85,12 @@ def str2byte(msg):  # 字符串转换成byte数组
     return list(msg_bytearray)
 
 
-def byte2str(msg):  # byte数组转字符串
+def byte2str(msg):
+    """
+    byte数组转字符串
+    :param msg:
+    :return:
+    """
     str1 = bytes(msg)
     return str1.decode('utf-8')
 
@@ -101,7 +99,7 @@ def hex2byte(msg):  # 16进制字符串转换成byte数组
     ml = len(msg)
     if ml % 2 != 0:
         msg = '0' + msg
-    msg_byte = [(int(msg[i:i + 2], 16)) for i in range(0, len(msg), 2)]
+    msg_byte = [(int(msg[i:i + 2], 16)) for i in range(0, ml, 2)]
     return msg_byte
 
 
@@ -114,7 +112,12 @@ def Hash_sm3(msg, Hexstr=0):
     return hash_msg(msg_byte)
 
 
-def KDF(Z, klen):  # Z为16进制表示的比特串（str），klen为密钥长度（单位byte）
+def KDF(Z, klen):
+    """
+    :param Z: Z为16进制表示的比特串（str），
+    :param klen: klen为密钥长度（单位byte）
+    :return:
+    """
     klen = int(klen)
     rcnt = int(ceil(klen / 32))
     Zin = hex2byte(Z)
@@ -127,8 +130,8 @@ if __name__ == '__main__':
     st = time.clock()
     y = Hash_sm3(a)
     et = time.clock()
-    print(y)
-    print(et - st)
+    print("sm3:", y)
+    print("time:", et - st)
     # print("\n\n")
     klen = 19
     print(KDF("57E7B63623FAE5F08CDA468E872A20AFA03DED41BF1403770E040DC83AF31A67991F2B01EBF9EFD8881F0A0493000603", klen))

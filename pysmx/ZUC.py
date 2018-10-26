@@ -7,6 +7,7 @@
 # @time: 2018/10/20 17:23
 # @Software: PyCharm
 
+from math import ceil
 
 S0 = [
     0x3E, 0x72, 0x5B, 0x47, 0xCA, 0xE0, 0x00, 0x33, 0x04, 0xD1, 0x54, 0x98, 0x09, 0xB9, 0x6D, 0xCB,
@@ -126,9 +127,9 @@ class ZUC(object):
         u = l1(((W1 & 0x0000ffff) << 16) | (W2 >> 16))
         v = l2(((W2 & 0x0000ffff) << 16) | (W1 >> 16))
         self.r = [make_uint32(S0[u >> 24], S1[(u >> 16) & 0xFF],
-                                S0[(u >> 8) & 0xFF], S1[u & 0xFF]),
-                    make_uint32(S0[v >> 24], S1[(v >> 16) & 0xFF],
-                                S0[(v >> 8) & 0xFF], S1[v & 0xFF])]
+                              S0[(u >> 8) & 0xFF], S1[u & 0xFF]),
+                  make_uint32(S0[v >> 24], S1[(v >> 16) & 0xFF],
+                              S0[(v >> 8) & 0xFF], S1[v & 0xFF])]
         return W
 
     def zuc_init(self, key, iv):
@@ -140,33 +141,24 @@ class ZUC(object):
             w = self.f()
             self.lfsr_init(w >> 1)
 
-    def zuc_generate_keystream(self, keystream_buffer):
+    def zuc_generate_keystream(self, length):
+        keystream_buffer = []
         self.bit_reorganization()
         self.f()  # Discard the output of F.
-        self.lfsr_shift()
-        for i, _ in enumerate(keystream_buffer):
-            self.bit_reorganization()
-            keystream_buffer[i] = self.f() ^ self.x[3]
+
+        def itor():
             self.lfsr_shift()
+            self.bit_reorganization()
+            return self.f() ^ self.x[-1]
+
+        keystream_buffer = [itor() for _ in range(length)]
+        self.lfsr_shift()
         return keystream_buffer
 
     def zuc_encrypt(self, input):
-        keystream_buffer = [0] * 4
         length = len(input)
-        output = [0] * length
-        self.bit_reorganization()
-        self.f()  # Discard the output of F.
-        self.lfsr_shift()
-        for i in range(0, length):
-            buffer_index = i % 4
-            if buffer_index == 0:
-                for ind, _ in enumerate(keystream_buffer):
-                    self.bit_reorganization()
-                    keystream_buffer[ind] = self.f() ^ self.x[3]
-                    self.lfsr_shift()
-
-            output[i] = input[i] ^ keystream_buffer[buffer_index]
-        return output
+        key_stream = self.zuc_generate_keystream(length)
+        return [inp ^ key_stream[i] for i, inp in enumerate(input)]
 
 
 if '__main__' == __name__:
@@ -175,9 +167,9 @@ if '__main__' == __name__:
     zuc = ZUC(key, iv)
     # 加密过程
     out = zuc.zuc_encrypt(b"i love u")
-    print("加密得到的字节流", ["%08x" % e for e in out])
+    print("加密得到的字流", ["%08x" % e for e in out])
     # 解密过程
     zuc2 = ZUC(key, iv)
     out2 = zuc2.zuc_encrypt(out)
-    print("解密得到的字节流", ["%08x" % e for e in out2])
+    print("解密得到的字流", ["%08x" % e for e in out2])
     print(bytes(out2))

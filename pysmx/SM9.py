@@ -8,5 +8,10 @@
 # @Software: PyCharm
 
 
+def signature(message, pk, sk):
+
+    return signature
+
+
 if __name__ == '__main__':
     pass

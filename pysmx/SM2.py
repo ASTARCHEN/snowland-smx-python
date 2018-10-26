@@ -1,7 +1,9 @@
 from random import choices
 from pysmx import SM3
+from hashlib import *
 from functools import reduce
 import time
+
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
 sm2_P = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF', 16)
@@ -10,7 +12,7 @@ sm2_a = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFC', 
 sm2_b = int('28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93', 16)
 sm2_a_3 = (sm2_a + 3) % sm2_P  # 倍点用到的中间值
 Fp = 256
-
+letterlist = "0123456789abcdef"
 
 # sm2_N = int('BDB6F4FE3E8B1D9E0DA8C0D40FC962195DFAE76F56564677', 16)
 # sm2_P = int('BDB6F4FE3E8B1D9E0DA8C0D46F4C318CEFE4AFE3B6B8551F', 16)
@@ -20,18 +22,25 @@ Fp = 256
 # sm2_a_3 = (sm2_a + 3) % sm2_P # 倍点用到的中间值
 # Fp = 192
 
+def get_hash(algorithm_name, message):
+    f = eval(algorithm_name + '()')
+    f.update(message)
+    return f.hexdigest()
+
+
 def get_random_str(strlen=64):
-    letterlist = "0123456789abcdef"
     return ''.join(choices(letterlist, k=strlen))
 
 
 def kG(k, Point, len_para):  # kP运算
     Point += '1'
-    Temp = reduce(lambda x, y:AddPoint(DoublePoint(x, len_para), Point, len_para) if y is '1' else DoublePoint(x, len_para), bin(k)[3:], Point)
+    Temp = reduce(
+        lambda x, y: AddPoint(DoublePoint(x, len_para), Point, len_para) if y is '1' else DoublePoint(x, len_para),
+        bin(k)[3:], Point)
     return ConvertJacb2Nor(Temp, len_para)
 
 
-def DoublePoint(Point, len_para):  # 倍点
+def DoublePoint(Point, len_para,P=sm2_P):  # 倍点
     l = len(Point)
     len_2 = 2 * len_para
     if l < len_para * 2:
@@ -40,32 +49,32 @@ def DoublePoint(Point, len_para):  # 倍点
         x1 = int(Point[0:len_para], 16)
         y1 = int(Point[len_para:len_2], 16)
         z1 = 1 if l == len_2 else int(Point[len_2:], 16)
-        T6 = (z1 * z1) % sm2_P
-        T2 = (y1 * y1) % sm2_P
-        T3 = (x1 + T6) % sm2_P
-        T4 = (x1 - T6) % sm2_P
-        T1 = (T3 * T4) % sm2_P
-        T3 = (y1 * z1) % sm2_P
-        T4 = (T2 * 8) % sm2_P
-        T5 = (x1 * T4) % sm2_P
-        T1 = (T1 * 3) % sm2_P
-        T6 = (T6 * T6) % sm2_P
-        T6 = (sm2_a_3 * T6) % sm2_P
-        T1 = (T1 + T6) % sm2_P
-        z3 = (T3 + T3) % sm2_P
-        T3 = (T1 * T1) % sm2_P
-        T2 = (T2 * T4) % sm2_P
-        x3 = (T3 - T5) % sm2_P
-        T4 = (T5 + ((T5 + sm2_P) >> 1) - T3) % sm2_P if T5 % 2 else (T5 + (T5 >> 1) - T3) % sm2_P
-        T1 = (T1 * T4) % sm2_P
-        y3 = (T1 - T2) % sm2_P
+        T6 = (z1 * z1) % P
+        T2 = (y1 * y1) % P
+        T3 = (x1 + T6) % P
+        T4 = (x1 - T6) % P
+        T1 = (T3 * T4) % P
+        T3 = (y1 * z1) % P
+        T4 = (T2 * 8) % P
+        T5 = (x1 * T4) % P
+        T1 = (T1 * 3) % P
+        T6 = (T6 * T6) % P
+        T6 = (sm2_a_3 * T6) % P
+        T1 = (T1 + T6) % P
+        z3 = (T3 + T3) % P
+        T3 = (T1 * T1) % P
+        T2 = (T2 * T4) % P
+        x3 = (T3 - T5) % P
+        T4 = (T5 + ((T5 + P) >> 1) - T3) % P if T5 % 2 else (T5 + (T5 >> 1) - T3) % P
+        T1 = (T1 * T4) % P
+        y3 = (T1 - T2) % P
 
         form = '%%0%dx' % len_para
         form = form * 3
         return form % (x3, y3, z3)
 
 
-def AddPoint(P1, P2, len_para):  # 点加函数，P2点为仿射坐标即z=1，P1为Jacobian加重射影坐标
+def AddPoint(P1, P2, len_para, P=sm2_P):  # 点加函数，P2点为仿射坐标即z=1，P1为Jacobian加重射影坐标
     len_2 = 2 * len_para
     l1 = len(P1)
     l2 = len(P2)
@@ -78,42 +87,42 @@ def AddPoint(P1, P2, len_para):  # 点加函数，P2点为仿射坐标即z=1，P
         x2 = int(P2[0:len_para], 16)
         y2 = int(P2[len_para:len_2], 16)
 
-        T1 = (Z1 * Z1) % sm2_P
-        T2 = (y2 * Z1) % sm2_P
-        T3 = (x2 * T1) % sm2_P
-        T1 = (T1 * T2) % sm2_P
-        T2 = (T3 - X1) % sm2_P
-        T3 = (T3 + X1) % sm2_P
-        T4 = (T2 * T2) % sm2_P
-        T1 = (T1 - Y1) % sm2_P
-        Z3 = (Z1 * T2) % sm2_P
-        T2 = (T2 * T4) % sm2_P
-        T3 = (T3 * T4) % sm2_P
-        T5 = (T1 * T1) % sm2_P
-        T4 = (X1 * T4) % sm2_P
-        X3 = (T5 - T3) % sm2_P
-        T2 = (Y1 * T2) % sm2_P
-        T3 = (T4 - X3) % sm2_P
-        T1 = (T1 * T3) % sm2_P
-        Y3 = (T1 - T2) % sm2_P
+        T1 = (Z1 * Z1) % P
+        T2 = (y2 * Z1) % P
+        T3 = (x2 * T1) % P
+        T1 = (T1 * T2) % P
+        T2 = (T3 - X1) % P
+        T3 = (T3 + X1) % P
+        T4 = (T2 * T2) % P
+        T1 = (T1 - Y1) % P
+        Z3 = (Z1 * T2) % P
+        T2 = (T2 * T4) % P
+        T3 = (T3 * T4) % P
+        T5 = (T1 * T1) % P
+        T4 = (X1 * T4) % P
+        X3 = (T5 - T3) % P
+        T2 = (Y1 * T2) % P
+        T3 = (T4 - X3) % P
+        T1 = (T1 * T3) % P
+        Y3 = (T1 - T2) % P
 
         form = '%%0%dx' % len_para
         form = form * 3
         return form % (X3, Y3, Z3)
 
 
-def ConvertJacb2Nor(Point, len_para):  # Jacobian加重射影坐标转换成仿射坐标
+def ConvertJacb2Nor(Point, len_para,P=sm2_P):  # Jacobian加重射影坐标转换成仿射坐标
     len_2 = 2 * len_para
     x = int(Point[0:len_para], 16)
     y = int(Point[len_para:len_2], 16)
     z = int(Point[len_2:], 16)
     # z_inv = Inverse(z, P)
-    z_inv = pow(z, sm2_P - 2, sm2_P)
-    z_invSquar = (z_inv * z_inv) % sm2_P
-    z_invQube = (z_invSquar * z_inv) % sm2_P
-    x_new = (x * z_invSquar) % sm2_P
-    y_new = (y * z_invQube) % sm2_P
-    z_new = (z * z_inv) % sm2_P
+    z_inv = pow(z, P - 2, P)
+    z_invSquar = (z_inv * z_inv) % P
+    z_invQube = (z_invSquar * z_inv) % P
+    x_new = (x * z_invSquar) % P
+    y_new = (y * z_invQube) % P
+    z_new = (z * z_inv) % P
     if z_new == 1:
         form = '%%0%dx' % len_para
         form = form * 2
@@ -125,7 +134,7 @@ def ConvertJacb2Nor(Point, len_para):  # Jacobian加重射影坐标转换成仿�
 
 def Inverse(data, M, len_para):  # 求逆，可用pow（）代替
     tempM = M - 2
-    mask_str = '8' + '0'*(len_para - 1)
+    mask_str = '8' + '0' * (len_para - 1)
     mask = int(mask_str, 16)
     tempA = 1
     tempB = data
@@ -185,12 +194,25 @@ def Sign(E, DA, K, len_para, Hexstr=0):  # 签名函数, E消息的hash，DA私�
     return '%064x%064x' % (R, S) if S else None
 
 
-def Encrypt(M, PA, len_para, Hexstr=0):  # 加密函数，M消息，PA公钥
+def Encrypt(M, PA, len_para, Hexstr=0, hash_algorithm='sm3'):  # 加密函数，M消息，PA公钥
     if Hexstr:
         msg = M  # 输入消息本身是16进制字符串
     else:
         msg = M.encode('utf-8')
         msg = msg.hex()  # 消息转化为16进制字符串
+    if isinstance(hash_algorithm, str):
+        hash_algorithm = hash_algorithm.lower()
+        if hash_algorithm == 'sm3':
+            hash_function = lambda x: SM3.Hash_sm3(x, 1)
+        elif hash_algorithm.startswith('sha'):
+            hash_function = lambda x: get_hash(hash_algorithm, x)
+        elif hash_algorithm.startswith('md'):
+            hash_function = lambda x: get_hash(hash_algorithm, x)
+        else:
+            raise NameError('hash_function not found')
+    elif isinstance(hash_algorithm, function):
+        hash_function = hash_algorithm
+
     k = get_random_str(len_para)
     # k = '59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21'
     # k = '384F30353073AEECE7A1654330A96204D37982A3E15B2CB5'
@@ -237,6 +259,7 @@ def Decrypt(C, DA, len_para):  # 解密函数，C密文（16进制字符串）�
         M = form % (int(C2, 16) ^ int(t, 16))
         # print('M = %s' % M)
         u = SM3.Hash_sm3('%s%s%s' % (x2, M, y2), 1)
+
         if (u == C3):
             return M
         else:
