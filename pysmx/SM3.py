@@ -40,6 +40,26 @@ def CF(V_i, B_i):
     W = [(B_i[ind] << 24) + (B_i[ind + 1] << 16) + (B_i[ind + 2] << 8) + (B_i[ind + 3]) for ind in range(0, 64, 4)]
     for j in range(16, 68):
         W.append(P_1(W[j - 16] ^ W[j - 9] ^ (rotate_left(W[j - 3], 15))) ^ (rotate_left(W[j - 13], 7)) ^ W[j - 6])
+
+    W_1 = [W[j] ^ W[j + 4] for j in range(64)]
+
+    A, B, C, D, E, F, G, H = V_i
+    for j in range(0, 64):
+        SS1 = rotate_left(((rotate_left(A, 12)) + E + (rotate_left(T_j[j], j))) & 0xFFFFFFFF, 7)
+        SS2 = SS1 ^ (rotate_left(A, 12))
+        TT1 = (FF_j(A, B, C, j) + D + SS2 + W_1[j]) & 0xFFFFFFFF
+        TT2 = (GG_j(E, F, G, j) + H + SS1 + W[j]) & 0xFFFFFFFF
+        A, B, C, D, E, F, G, H = TT1, A, rotate_left(B, 9) & 0xffffffff, C, P_0(
+            TT2) & 0xffffffff, E, rotate_left(F, 19) & 0xffffffff, G
+
+    return [A ^ V_i[0], B ^ V_i[1], C ^ V_i[2],
+            D ^ V_i[3], E ^ V_i[4], F ^ V_i[5], G ^ V_i[6], H ^ V_i[7]]
+
+
+def CF2(V_i, B_i):
+    W = [(B_i[ind] << 24) + (B_i[ind + 1] << 16) + (B_i[ind + 2] << 8) + (B_i[ind + 3]) for ind in range(0, 64, 4)]
+    for j in range(16, 68):
+        W.append(P_1(W[j - 16] ^ W[j - 9] ^ (rotate_left(W[j - 3], 15))) ^ (rotate_left(W[j - 13], 7)) ^ W[j - 6])
     W_1 = [W[j] ^ W[j + 4] for j in range(64)]
     A, B, C, D, E, F, G, H = V_i
 

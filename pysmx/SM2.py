@@ -32,7 +32,14 @@ def get_random_str(strlen=64):
     return ''.join(choices(letterlist, k=strlen))
 
 
-def kG(k, Point, len_para):  # kP运算
+def kG(k, Point, len_para):
+    """
+    kP运算
+    :param k:
+    :param Point:
+    :param len_para:
+    :return:
+    """
     Point += '1'
     Temp = reduce(
         lambda x, y: AddPoint(DoublePoint(x, len_para), Point, len_para) if y is '1' else DoublePoint(x, len_para),
@@ -40,7 +47,14 @@ def kG(k, Point, len_para):  # kP运算
     return ConvertJacb2Nor(Temp, len_para)
 
 
-def DoublePoint(Point, len_para,P=sm2_P):  # 倍点
+def DoublePoint(Point, len_para,P=sm2_P):
+    """
+    倍点
+    :param Point:
+    :param len_para:
+    :param P:
+    :return:
+    """
     l = len(Point)
     len_2 = 2 * len_para
     if l < len_para * 2:
@@ -273,8 +287,8 @@ if __name__ == '__main__':
     d = get_random_str(len_para)
     k = get_random_str(len_para)
     # e = '656E6372797074696F6E207374616E64617264'
-    d = '3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8'
-    # d = '58892B807074F53FBF67288A1DFAA1AC313455FE60355AFD'
+    # d = '3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8'
+    # k = '58892B807074F53FBF67288A1DFAA1AC313455FE60355AFD'
     Pa = kG(int(d, 16), sm2_G, len_para)
     Sig = Sign(e, d, k, len_para, 1)
     print(Verify(Sig, e, Pa, len_para))
