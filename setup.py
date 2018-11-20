@@ -44,5 +44,6 @@ setup(
         'Topic :: Software Development :: Libraries'
     ],
     install_requires=[
+        'numpy>=1.0.0'
     ],
 )
