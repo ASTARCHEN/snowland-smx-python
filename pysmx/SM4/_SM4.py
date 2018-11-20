@@ -197,6 +197,8 @@ def sm4_crypt_cbc(mode, key, iv, data):
     return en_data
 
 
+SM4 = Sm4
+
 if __name__ == "__main__":
     # log_init()
 

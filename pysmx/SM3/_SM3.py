@@ -1,6 +1,6 @@
 from math import ceil
-import time
 from functools import reduce
+from copy import deepcopy, copy
 
 BIT_BLOCK_H = [0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xFF]
 BIT_BLOCK_L = [0x0, 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF]
@@ -51,34 +51,8 @@ def CF(V_i, B_i):
         TT2 = (GG_j(E, F, G, j) + H + SS1 + W[j]) & 0xFFFFFFFF
         A, B, C, D, E, F, G, H = TT1, A, rotate_left(B, 9) & 0xffffffff, C, P_0(
             TT2) & 0xffffffff, E, rotate_left(F, 19) & 0xffffffff, G
-
     return [A ^ V_i[0], B ^ V_i[1], C ^ V_i[2],
             D ^ V_i[3], E ^ V_i[4], F ^ V_i[5], G ^ V_i[6], H ^ V_i[7]]
-
-
-def CF2(V_i, B_i):
-    W = [(B_i[ind] << 24) + (B_i[ind + 1] << 16) + (B_i[ind + 2] << 8) + (B_i[ind + 3]) for ind in range(0, 64, 4)]
-    for j in range(16, 68):
-        W.append(P_1(W[j - 16] ^ W[j - 9] ^ (rotate_left(W[j - 3], 15))) ^ (rotate_left(W[j - 13], 7)) ^ W[j - 6])
-    W_1 = [W[j] ^ W[j + 4] for j in range(64)]
-    A, B, C, D, E, F, G, H = V_i
-
-    for j in range(0, 64):
-        SS1 = rotate_left(((rotate_left(A, 12)) + E + (rotate_left(T_j[j], j))) & 0xFFFFFFFF, 7)
-        SS2 = SS1 ^ (rotate_left(A, 12))
-        TT1 = (FF_j(A, B, C, j) + D + SS2 + W_1[j]) & 0xFFFFFFFF
-        TT2 = (GG_j(E, F, G, j) + H + SS1 + W[j]) & 0xFFFFFFFF
-        A, B, C, D, E, F, G, H = TT1, A, rotate_left(B, 9) & 0xffffffff, C, P_0(
-            TT2) & 0xffffffff, E, rotate_left(F, 19) & 0xffffffff, G
-    V_i[0] ^= A
-    V_i[1] ^= B
-    V_i[2] ^= C
-    V_i[3] ^= D
-    V_i[4] ^= E
-    V_i[5] ^= F
-    V_i[6] ^= G
-    V_i[7] ^= H
-    return V_i
 
 
 def hash_msg(msg):
@@ -100,8 +74,14 @@ def hash_msg(msg):
     return "".join(['%08x' % i for i in y])
 
 
-def str2byte(msg):  # 字符串转换成byte数组
-    msg_bytearray = msg.encode('utf-8') if isinstance(msg, str) else msg
+def str2bytes(msg, encoding='utf-8'):
+    """
+    字符串转换成byte数组
+    :param msg: 信息串
+    :param encoding: 编码
+    :return:
+    """
+    msg_bytearray = msg.encode(encoding) if isinstance(msg, str) else msg
     return list(msg_bytearray)
 
 
@@ -116,7 +96,12 @@ def byte2str(msg, decode='utf-8'):
     return str1.decode(decode)
 
 
-def hex2byte(msg):  # 16进制字符串转换成byte列表
+def hex2byte(msg):
+    """
+    16进制字符串转换成byte列表
+    :param msg:
+    :return:
+    """
     ml = len(msg)
     if ml % 2 != 0:
         msg = '0' + msg
@@ -128,8 +113,16 @@ def byte2hex(msg):  # byte数组转换成16进制字符串
 
 
 def Hash_sm3(msg, Hexstr=0):
-    msg_byte = hex2byte(msg) if Hexstr else str2byte(msg)
+    msg_byte = hex2byte(msg) if Hexstr else str2bytes(msg)
     return hash_msg(msg_byte)
+
+
+hexdigest = Hash_sm3
+
+
+def digest(msg, Hexstr=0, encoding='utf-8'):
+    msg_byte = hex2byte(msg) if Hexstr else str2bytes(msg)
+    return bytes(hash_msg(msg_byte), encoding)
 
 
 def KDF(Z, klen):
@@ -145,13 +138,26 @@ def KDF(Z, klen):
     return Ha[0: klen * 2]
 
 
-if __name__ == '__main__':
-    a = bytes("abc", encoding='utf8')
-    st = time.clock()
-    y = Hash_sm3("abc", 0)
-    et = time.clock()
-    print("sm3:", y)
-    print("time:", et - st)
-    # print("\n\n")
-    klen = 19
-    print(KDF("57E7B63623FAE5F08CDA468E872A20AFA03DED41BF1403770E040DC83AF31A67991F2B01EBF9EFD8881F0A0493000603", klen))
+class SM3Type(object):
+    name = 'SM3'
+    digest_size = 64
+    block_size = 64
+
+    def __init__(self, msg=b'', encoding='utf-8'):
+        self.encoding = encoding
+        self.msg = str2bytes(msg, self.encoding)
+
+    def update(self, msg):
+        self.msg += str2bytes(msg, self.encoding)
+
+    def digest(self):
+        return digest(self.msg, 0)
+
+    def hexdigest(self):
+        return hexdigest(self.msg, 0)
+
+    def copy(self):
+        return deepcopy(self)
+
+
+SM3 = SM3Type

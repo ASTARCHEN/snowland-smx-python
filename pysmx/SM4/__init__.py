@@ -3,13 +3,9 @@
 # @Author  : 河北雪域网络科技有限公司 A.Star
 # @contact: astar@snowland.ltd
 # @site: www.snowland.ltd
-# @file: __init__.py
-# @time: 2018/9/21 22:04
+# @file: __init__.py.py
+# @time: 2018/11/18 22:32
 # @Software: PyCharm
 
-from pysmx import SM3
-from pysmx import SM2
-from pysmx import SM4
-from pysmx import ZUC
-from pysmx import crypto
-__version__ = '0.2.0'
+
+from pysmx.SM4._SM4 import *

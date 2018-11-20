@@ -1,6 +1,6 @@
 from random import choices
 from pysmx import SM3
-from hashlib import *
+from pysmx.crypto.hashlib import *
 from functools import reduce
 import time
 
@@ -22,9 +22,15 @@ letterlist = "0123456789abcdef"
 # sm2_a_3 = (sm2_a + 3) % sm2_P # 倍点用到的中间值
 # Fp = 192
 
-def get_hash(algorithm_name, message):
+
+def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
     f = eval(algorithm_name + '()')
-    f.update(message)
+    if Hexstr:
+        message = bytes.fromhex(message)
+    if isinstance(message, (bytes, bytearray)):
+        f.update(message)
+    else:
+        f.update(bytes(message, encoding=encoding))
     return f.hexdigest()
 
 
@@ -162,7 +168,15 @@ def Inverse(data, M, len_para):  # 求逆，可用pow（）代替
     return tempA
 
 
-def Verify(Sign, E, PA, len_para):  # 验签函数，Sign签名r||s，E消息hash，PA公钥
+def Verify(Sign, E, PA, len_para):
+    """
+    验签函数
+    :param Sign: 签名 r||s
+    :param E: E消息hash
+    :param PA: PA公钥
+    :param len_para:
+    :return:
+    """
     r = int(Sign[0:len_para], 16)
     s = int(Sign[len_para:2 * len_para], 16)
     e = int(E, 16)
@@ -183,7 +197,7 @@ def Verify(Sign, E, PA, len_para):  # 验签函数，Sign签名r||s，E消息has
         P1 = ConvertJacb2Nor(P1, len_para)
 
     x = int(P1[0:len_para], 16)
-    return (r == ((e + x) % sm2_N))
+    return r == ((e + x) % sm2_N)
 
 
 def Sign(E, DA, K, len_para, Hexstr=0):  # 签名函数, E消息的hash，DA私钥，K随机数，均为16进制字符串
@@ -208,11 +222,20 @@ def Sign(E, DA, K, len_para, Hexstr=0):  # 签名函数, E消息的hash，DA私�
     return '%064x%064x' % (R, S) if S else None
 
 
-def Encrypt(M, PA, len_para, Hexstr=0, hash_algorithm='sm3'):  # 加密函数，M消息，PA公钥
+def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
+    """
+    加密函数
+    :param M: 消息
+    :param PA: PA公钥
+    :param len_para:
+    :param Hexstr:
+    :param hash_algorithm:
+    :return:
+    """
     if Hexstr:
         msg = M  # 输入消息本身是16进制字符串
     else:
-        msg = M.encode('utf-8')
+        msg = M.encode(encoding)
         msg = msg.hex()  # 消息转化为16进制字符串
     if isinstance(hash_algorithm, str):
         hash_algorithm = hash_algorithm.lower()
@@ -238,7 +261,17 @@ def Encrypt(M, PA, len_para, Hexstr=0, hash_algorithm='sm3'):  # 加密函数，
     y2 = xy[len_para:2 * len_para]
     ml = len(msg)
     # print('ml = %d'% ml)
-    t = SM3.KDF(xy, ml / 2)
+    if hash_algorithm == 'sm3':
+        t = SM3.KDF(xy, ml / 2)
+    else:
+        t = get_hash(hash_algorithm, M)
+        # bytet = pbkdf2_hmac(hash_algorithm,
+        #                 bytes(M, encoding=encoding),
+        #                 iterations=ml//2,
+        #                 salt=b''
+        #                 )
+        # t = "".join(["%08x"% each for each in bytet])
+        raise FutureWarning('the function will be fixed in the future')
     # print(t)
     if int(t, 16) == 0:
         return None
@@ -247,12 +280,13 @@ def Encrypt(M, PA, len_para, Hexstr=0, hash_algorithm='sm3'):  # 加密函数，
         C2 = form % (int(msg, 16) ^ int(t, 16))
         # print('C2 = %s'% C2)
         # print('%s%s%s'% (x2,msg,y2))
-        C3 = SM3.Hash_sm3('%s%s%s' % (x2, msg, y2), 1)
+        # C3 = SM3.Hash_sm3('%s%s%s' % (x2, msg, y2), 1)
+        C3 = get_hash(hash_algorithm, '%s%s%s' % (x2, msg, y2), Hexstr=1)
         # print('C3 = %s' % C3)
         return '%s%s%s' % (C1, C3, C2)
 
 
-def Decrypt(C, DA, len_para):  # 解密函数，C密文（16进制字符串），DA私钥
+def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):  # 解密函数，C密文（16进制字符串），DA私钥
     len_2 = 2 * len_para
     len_3 = len_2 + 64
     C1 = C[0:len_2]
@@ -264,7 +298,14 @@ def Decrypt(C, DA, len_para):  # 解密函数，C密文（16进制字符串）�
     y2 = xy[len_para:len_2]
     cl = len(C2)
     # print(cl)
-    t = SM3.KDF(xy, cl / 2)
+    if hash_algorithm == 'sm3':
+        t = SM3.KDF(xy, cl / 2)
+    else:
+        t = get_hash(hash_algorithm, xy, Hexstr=1)
+        # bytet = pbkdf2_hmac(hash_algorithm, bytes.fromhex(xy), iterations=cl // 2, salt=b'', dklen=None)
+        # t = "".join(["%08x"% each for each in bytet])
+        raise FutureWarning('the function will be fixed in the future')
+    # t = SM3.KDF(xy, cl / 2)
     # print('t = %s'%t)
     if int(t, 16) == 0:
         return None
@@ -272,12 +313,12 @@ def Decrypt(C, DA, len_para):  # 解密函数，C密文（16进制字符串）�
         form = '%%0%dx' % cl
         M = form % (int(C2, 16) ^ int(t, 16))
         # print('M = %s' % M)
-        u = SM3.Hash_sm3('%s%s%s' % (x2, M, y2), 1)
-
-        if (u == C3):
-            return M
+        if hash_algorithm == 'sm3':
+            u = SM3.Hash_sm3('%s%s%s' % (x2, M, y2), 1)
         else:
-            return None
+            u = get_hash(hash_algorithm, '%s%s%s' % (x2, M, y2), Hexstr=1)
+            raise FutureWarning('the function will be fixed in the future')
+        return M if u == C3 else None
 
 
 if __name__ == '__main__':
@@ -295,10 +336,10 @@ if __name__ == '__main__':
     print(Pa)
     e = "你好"
     print('M = %s' % e)
-    C = Encrypt(e, Pa, len_para, 0)
+    C = Encrypt(e, Pa, len_para, 0, hash_algorithm='sm3')
     print('C = %s' % C)
     print('Decrypt')
-    m = Decrypt(C, d, len_para)
+    m = Decrypt(C, d, len_para, hash_algorithm='sm3')
     M = bytes.fromhex(m)
     print(M.decode())
 
