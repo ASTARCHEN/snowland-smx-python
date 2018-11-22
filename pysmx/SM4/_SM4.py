@@ -15,6 +15,7 @@ SM4 GM
 """
 # from print import *
 import copy
+import struct
 import time
 from functools import reduce
 
@@ -127,12 +128,8 @@ class Sm4(object):
         self.sm4_setkey(key_data, mode)
 
     def sm4_setkey(self, key, mode):
-        MK = [0, 0, 0, 0]
         k = [0] * 36
-        MK[0] = GET_UINT32_BE(key[0:4])
-        MK[1] = GET_UINT32_BE(key[4:8])
-        MK[2] = GET_UINT32_BE(key[8:12])
-        MK[3] = GET_UINT32_BE(key[12:16])
+        MK = struct.unpack_from(">IIII", bytes(key))
         k[0:4] = XOR(MK, FK)
         item = k[1] ^ k[2]
         for i in range(32):
@@ -145,20 +142,16 @@ class Sm4(object):
             self.sk.reverse()
 
     def sm4_one_round(self, sk, in_put):
-        item = [GET_UINT32_BE(in_put[12:16]), GET_UINT32_BE(in_put[8:12]), GET_UINT32_BE(in_put[4:8]),
-                GET_UINT32_BE(in_put[0:4])]
-
+        item = list(struct.unpack_from(">IIII", bytes(in_put)))
+        item.reverse()
         res = reduce(lambda x, y: [sm4F(x[3], x[2], x[1], x[0], y), x[0], x[1], x[2]], sk, item)
-        rev = map(PUT_UINT32_BE, res)
-        out_put = []
-        [out_put.extend(_) for _ in rev]
-        return out_put
+        rev2 = reduce(lambda x, i: x+struct.pack(">I", i), res, b'')
+        return list(rev2)
 
     def sm4_crypt_ecb(self, input_data):
         # SM4-ECB block encryption/decryption
-        output_data = []
         tmp = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
-        [output_data.extend(each) for each in map(lambda x: self.sm4_one_round(self.sk, x), tmp)]
+        output_data = reduce(lambda a, b: a + b, map(lambda x: self.sm4_one_round(self.sk, x), tmp), [])
         return output_data
 
     def sm4_crypt_cbc(self, iv, input_data):
@@ -178,8 +171,7 @@ class Sm4(object):
             ivs = [input_data[i:i + 16] for i in range(0, len(input_data), 16)]
             ivs.insert(0, iv)
             tmp = map(lambda x: self.sm4_one_round(self.sk, x), ivs[1:])
-            out = map(XOR, tmp, ivs[:-1])
-            [output_data.extend(_) for _ in out]
+            output_data = reduce(lambda a, b: a + b, map(XOR, tmp, ivs[:-1]), [])
         return output_data
 
 
@@ -201,14 +193,14 @@ SM4 = Sm4
 
 if __name__ == "__main__":
     # log_init()
-
+    import numpy as np
     key_data = [0x5a] * 16
-    input_data = [0x6b] * 128
+    input_data = list(np.random.randint(256, size=1024*6))
     iv_data = [0] * 16
-
+    time.clock()
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key_data, ENCRYPT)
-
+    st = time.clock()
     en_data = sm4_d.sm4_crypt_ecb(input_data)
     print(en_data, "en_data:")
     sm4_d.sm4_set_key(key_data, DECRYPT)
@@ -219,7 +211,8 @@ if __name__ == "__main__":
     else:
         print("ecb check fail")
         raise BaseException("error")
-
+    et = time.clock()
+    print(et-st)
     sm4_d.sm4_set_key(key_data, ENCRYPT)
     en_data = sm4_d.sm4_crypt_cbc(iv_data, input_data)
     print(en_data, "en_data:")
@@ -232,11 +225,11 @@ if __name__ == "__main__":
         print("cbc check fail")
         raise BaseException("error")
     # file test
-    file_path = r"../test2.txt"
-    ecb_path_en = r"../test2k_ecb_en.txt"
-    ecb_path_de = r"../test2k_ecb_de.txt"
-    cbc_path_en = r"../test2k_cbc_en.txt"
-    cbc_path_de = r"../test2k_cbc_de.txt"
+    file_path = r"../../test2.txt"
+    ecb_path_en = r"../../test2k_ecb_en.txt"
+    ecb_path_de = r"../../test2k_ecb_de.txt"
+    cbc_path_en = r"../../test2k_cbc_en.txt"
+    cbc_path_de = r"../../test2k_cbc_de.txt"
 
     key_data = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]
