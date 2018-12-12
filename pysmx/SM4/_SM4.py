@@ -3,17 +3,16 @@
 # @Author  : 河北雪域网络科技有限公司 A.Star
 # @contact: astar@snowland.ltd
 # @site: www.snowland.ltd
-# @file: SM4.py
+# @file: _SM4.py
 # @time: 2018/9/21 15:25
 # @Software: PyCharm
 
 
-# -*-coding:utf-8-*-
 """
 SM4 GM
 @author: Dawei
+@author: A.Star
 """
-# from print import *
 import copy
 import struct
 import time
@@ -271,4 +270,3 @@ if __name__ == "__main__":
     else:
         print("file decode fail")
         raise BaseException("error")
-    # log_end()

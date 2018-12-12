@@ -1,5 +1,15 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# @Author  : 河北雪域网络科技有限公司 A.Star
+# @contact: astar@snowland.ltd
+# @site: www.snowland.ltd
+# @file: _SM2.py
+# @time: 2018/12/03 15:11
+# @Software: PyCharm
+
+
 from random import choices
-from pysmx import SM3
+from pysmx.SM3 import SM3, KDF
 from pysmx.crypto.hashlib import *
 from functools import reduce
 import time
@@ -237,18 +247,6 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     else:
         msg = M.encode(encoding)
         msg = msg.hex()  # 消息转化为16进制字符串
-    if isinstance(hash_algorithm, str):
-        hash_algorithm = hash_algorithm.lower()
-        if hash_algorithm == 'sm3':
-            hash_function = lambda x: SM3.Hash_sm3(x, 1)
-        elif hash_algorithm.startswith('sha'):
-            hash_function = lambda x: get_hash(hash_algorithm, x)
-        elif hash_algorithm.startswith('md'):
-            hash_function = lambda x: get_hash(hash_algorithm, x)
-        else:
-            raise NameError('hash_function not found')
-    elif isinstance(hash_algorithm, function):
-        hash_function = hash_algorithm
 
     k = get_random_str(len_para)
     # k = '59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21'
@@ -262,7 +260,7 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     ml = len(msg)
     # print('ml = %d'% ml)
     if hash_algorithm == 'sm3':
-        t = SM3.KDF(xy, ml / 2)
+        t = KDF(xy, ml / 2)
     else:
         t = get_hash(hash_algorithm, M)
         # bytet = pbkdf2_hmac(hash_algorithm,
@@ -271,7 +269,7 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
         #                 salt=b''
         #                 )
         # t = "".join(["%08x"% each for each in bytet])
-        raise FutureWarning('the function will be fixed in the future')
+        # raise FutureWarning('the function will be fixed in the future')
     # print(t)
     if int(t, 16) == 0:
         return None
@@ -280,15 +278,15 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
         C2 = form % (int(msg, 16) ^ int(t, 16))
         # print('C2 = %s'% C2)
         # print('%s%s%s'% (x2,msg,y2))
-        # C3 = SM3.Hash_sm3('%s%s%s' % (x2, msg, y2), 1)
         C3 = get_hash(hash_algorithm, '%s%s%s' % (x2, msg, y2), Hexstr=1)
         # print('C3 = %s' % C3)
         return '%s%s%s' % (C1, C3, C2)
 
 
 def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):  # 解密函数，C密文（16进制字符串），DA私钥
+    f = eval(hash_algorithm + '()')
     len_2 = 2 * len_para
-    len_3 = len_2 + 64
+    len_3 = len_2 + f.block_size
     C1 = C[0:len_2]
     C3 = C[len_2:len_3]
     C2 = C[len_3:]
@@ -299,12 +297,12 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'): 
     cl = len(C2)
     # print(cl)
     if hash_algorithm == 'sm3':
-        t = SM3.KDF(xy, cl / 2)
+        t = KDF(xy, cl / 2)
     else:
         t = get_hash(hash_algorithm, xy, Hexstr=1)
         # bytet = pbkdf2_hmac(hash_algorithm, bytes.fromhex(xy), iterations=cl // 2, salt=b'', dklen=None)
         # t = "".join(["%08x"% each for each in bytet])
-        raise FutureWarning('the function will be fixed in the future')
+        # raise FutureWarning('the function will be fixed in the future')
     # t = SM3.KDF(xy, cl / 2)
     # print('t = %s'%t)
     if int(t, 16) == 0:
@@ -313,11 +311,8 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'): 
         form = '%%0%dx' % cl
         M = form % (int(C2, 16) ^ int(t, 16))
         # print('M = %s' % M)
-        if hash_algorithm == 'sm3':
-            u = SM3.Hash_sm3('%s%s%s' % (x2, M, y2), 1)
-        else:
-            u = get_hash(hash_algorithm, '%s%s%s' % (x2, M, y2), Hexstr=1)
-            raise FutureWarning('the function will be fixed in the future')
+
+        u = get_hash(hash_algorithm, '%s%s%s' % (x2, M, y2), 1)
         return M if u == C3 else None
 
 
@@ -331,15 +326,16 @@ if __name__ == '__main__':
     # d = '3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8'
     # k = '58892B807074F53FBF67288A1DFAA1AC313455FE60355AFD'
     Pa = kG(int(d, 16), sm2_G, len_para)
+    hash_algorithm = 'sm3'
     Sig = Sign(e, d, k, len_para, 1)
     print(Verify(Sig, e, Pa, len_para))
     print(Pa)
     e = "你好"
     print('M = %s' % e)
-    C = Encrypt(e, Pa, len_para, 0, hash_algorithm='sm3')
+    C = Encrypt(e, Pa, len_para, 0, hash_algorithm=hash_algorithm)
     print('C = %s' % C)
     print('Decrypt')
-    m = Decrypt(C, d, len_para, hash_algorithm='sm3')
+    m = Decrypt(C, d, len_para, hash_algorithm=hash_algorithm)
     M = bytes.fromhex(m)
     print(M.decode())
 

@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# @Author  : 河北雪域网络科技有限公司 A.Star
+# @contact: astar@snowland.ltd
+# @site: www.snowland.ltd
+# @file: _SM3.py
+# @time: 2018/12/03 15:26
+# @Software: PyCharm
+
+
 from math import ceil
 from functools import reduce
 from copy import deepcopy
@@ -90,8 +100,7 @@ def byte2str(msg, decode='utf-8'):
     :param decode:
     :return:
     """
-    str1 = bytes(msg)
-    return str1.decode(decode)
+    return msg.decode(decode) if isinstance(msg, (bytes, bytearray)) else msg
 
 
 def hex2byte(msg):
