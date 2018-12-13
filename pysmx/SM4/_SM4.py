@@ -205,7 +205,7 @@ class Sm4(object):
         if self.mode == ENCRYPT:
             while length > 0:
                 tmp_input = input_data[i:i + 16]
-                out = self.sm4_one_round(self.sk, XOR(iv,tmp_input[0:16]))
+                out = self.sm4_one_round(self.sk, XOR(iv, tmp_input[0:16]))
                 output_data.extend(out)
                 iv = copy.deepcopy(XOR(out, tmp_input))
                 i += 16
@@ -249,14 +249,12 @@ class Sm4(object):
                 out = self.sm4_one_round(self.sk, iv)
                 iv = out
                 out = XOR(out, tmp_input)
-                output_data.extend(out)             
+                output_data.extend(out)
                 i += 16
                 length -= 16
             self.mode = DECRYPT
             self.sk = self.sk[::-1]
         return output_data
-
-
 
     def sm4_crypt_cfb(self, iv, input_data):
         """
@@ -292,6 +290,7 @@ class Sm4(object):
             self.sk = self.sk[::-1]
         return output_data
 
+
 def sm4_crypt_ecb(mode, key, data):
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
@@ -312,6 +311,7 @@ def sm4_crypt_pcbc(mode, key, iv, data):
     en_data = sm4_d.sm4_crypt_pcbc(iv, data)
     return en_data
 
+
 def sm4_crypt_cfb(mode, key, iv, data):
     sm4_d = Sm4()
     sm4_d.sm4_set_key(key, mode)
@@ -324,6 +324,7 @@ def sm4_crypt_ofb(mode, key, iv, data):
     sm4_d.sm4_set_key(key, mode)
     en_data = sm4_d.sm4_crypt_ofb(iv, data)
     return en_data
+
 
 SM4 = Sm4
 
