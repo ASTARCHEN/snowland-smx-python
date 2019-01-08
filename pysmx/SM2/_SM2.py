@@ -8,11 +8,9 @@
 # @Software: PyCharm
 
 
-from random import choices
-from pysmx.SM3 import SM3, KDF
-from pysmx.crypto.hashlib import *
 from functools import reduce
-import time
+from random import choices
+from pysmx.SM3 import KDF
 
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
@@ -23,6 +21,7 @@ sm2_b = int('28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93', 
 sm2_a_3 = (sm2_a + 3) % sm2_P  # 倍点用到的中间值
 Fp = 256
 letterlist = "0123456789abcdef"
+
 
 # sm2_N = int('BDB6F4FE3E8B1D9E0DA8C0D40FC962195DFAE76F56564677', 16)
 # sm2_P = int('BDB6F4FE3E8B1D9E0DA8C0D46F4C318CEFE4AFE3B6B8551F', 16)
@@ -63,7 +62,7 @@ def kG(k, Point, len_para):
     return ConvertJacb2Nor(Temp, len_para)
 
 
-def DoublePoint(Point, len_para,P=sm2_P):
+def DoublePoint(Point, len_para, P=sm2_P):
     """
     倍点
     :param Point:
@@ -141,7 +140,7 @@ def AddPoint(P1, P2, len_para, P=sm2_P):  # 点加函数，P2点为仿射坐标�
         return form % (X3, Y3, Z3)
 
 
-def ConvertJacb2Nor(Point, len_para,P=sm2_P):  # Jacobian加重射影坐标转换成仿射坐标
+def ConvertJacb2Nor(Point, len_para, P=sm2_P):  # Jacobian加重射影坐标转换成仿射坐标
     len_2 = 2 * len_para
     x = int(Point[0:len_para], 16)
     y = int(Point[len_para:len_2], 16)

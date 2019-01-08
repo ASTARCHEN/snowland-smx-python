@@ -8,4 +8,6 @@
 # @Software: PyCharm
 
 
-from pysmx.SM2._SM2 import *
+from pysmx.SM2._SM2 import (
+    Sign, Verify, Encrypt, Decrypt
+)
