@@ -57,7 +57,7 @@ def CF(V_i, B_i):
 
 def hash_msg(msg):
     # print(msg)
-    msg = npa(msg)
+    msg = npa(list(msg))
     len1 = len(msg)
     msg = np.append(msg, 0x80)
     reserve1 = len1 % 64 + 1
@@ -106,7 +106,7 @@ def hex2byte(msg):
     ml = len(msg)
     if ml % 2 != 0:
         msg = '0' + msg
-    return npa(bytes.fromhex(msg))
+    return bytes.fromhex(msg)
 
 
 def byte2hex(msg):  # byte数组转换成16进制字符串

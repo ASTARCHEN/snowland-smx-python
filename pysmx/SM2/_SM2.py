@@ -1,4 +1,4 @@
-from random import choices
+from numpy.random import choice as choices
 from pysmx import SM3
 from pysmx.crypto.hashlib import *
 from functools import reduce
@@ -35,7 +35,7 @@ def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
 
 
 def get_random_str(strlen=64):
-    return ''.join(choices(letterlist, k=strlen))
+    return ''.join(choices(list(letterlist), strlen))
 
 
 def kG(k, Point, len_para):
