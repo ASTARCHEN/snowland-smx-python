@@ -2,7 +2,7 @@ from numpy.random import choice as choices
 from pysmx import SM3
 from functools import reduce
 import time
-
+import random
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
 sm2_P = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF', 16)
@@ -21,6 +21,30 @@ letterlist = "0123456789abcdef"
 # sm2_a_3 = (sm2_a + 3) % sm2_P # 倍点用到的中间值
 # Fp = 192
 
+
+def modular_power(a, n, p):  # a^m%p
+    """
+    原文：https://blog.csdn.net/qq_36921652/article/details/79368299
+    """
+    if (n == 0):
+        return 1
+    elif (n == 1):
+        return a % p
+    temp = a * a % p
+    if n & 1:
+        return a % p * modular_power(temp, n // 2, p) % p
+    else:
+        return (modular_power(temp, n // 2, p)) % p
+
+
+def isPrime(number: (str, int, np.int), itor=10):
+    if not isinstance(number, int):
+        number = int(number)
+    for i in range(itor):
+        a = random.randint(1, number-1)
+        if modular_power(a, number - 1, number) != 1:
+            return False
+    return True
 
 def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
     f = eval(algorithm_name + '()')
