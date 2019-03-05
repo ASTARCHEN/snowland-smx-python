@@ -1,6 +1,5 @@
 from numpy.random import choice as choices
 from pysmx import SM3
-from pysmx.crypto.hashlib import *
 from functools import reduce
 import time
 

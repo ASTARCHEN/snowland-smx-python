@@ -8,8 +8,7 @@
 # @Software: PyCharm
 
 def signature(message, pk, sk):
-
-    return signature
+    raise NotImplemented
 
 
 if __name__ == '__main__':

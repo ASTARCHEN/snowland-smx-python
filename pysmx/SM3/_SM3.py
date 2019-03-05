@@ -162,3 +162,7 @@ class SM3Type(object):
 
 
 SM3 = SM3Type
+
+if __name__ == '__main__':
+    salt = '0AjEck0kAnk8'
+    print(Hash_sm3(salt + '11AAeax1fx2g'))
