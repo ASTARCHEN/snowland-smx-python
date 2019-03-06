@@ -173,6 +173,102 @@ class Sm4(object):
             output_data = reduce(lambda a, b: a + b, map(XOR, tmp, ivs[:-1]), [])
         return output_data
 
+    def sm4_crypt_pcbc(self, iv, input_data):
+        """
+        SM4-PCBC buffer encryption/decryption
+        :param iv:
+        :param input_data:
+        :return:
+        """
+        length = len(input_data)
+        i = 0
+        output_data = []
+        if self.mode == ENCRYPT:
+            while length > 0:
+                tmp_input = input_data[i:i + 16]
+                out = self.sm4_one_round(self.sk, XOR(iv, tmp_input[0:16]))
+                output_data.extend(out)
+                iv = copy.deepcopy(XOR(out, tmp_input))
+                i += 16
+                length -= 16
+        else:
+            while length > 0:
+                tmp_input = input_data[i:i + 16]
+                out = self.sm4_one_round(self.sk, tmp_input[0:16])
+                out = XOR(out, iv)
+                iv = copy.deepcopy(XOR(out, tmp_input))
+                output_data.extend(out)
+                i += 16
+                length -= 16
+        return output_data
+
+    def sm4_crypt_ofb(self, iv, input_data):
+        """
+        SM4-OFB buffer encryption/decryption
+        :param iv:
+        :param input_data:
+        :return:
+        """
+        length = len(input_data)
+        i = 0
+        output_data = []
+        if self.mode == ENCRYPT:
+            while length > 0:
+                tmp_input = input_data[i:i + 16]
+                out = self.sm4_one_round(self.sk, iv)
+                iv = out
+                out = XOR(out, tmp_input)
+                output_data.extend(out)
+                i += 16
+                length -= 16
+        else:
+            self.mode = ENCRYPT
+            self.sk = self.sk[::-1]
+            while length > 0:
+                tmp_input = input_data[i:i + 16]
+                out = self.sm4_one_round(self.sk, iv)
+                iv = out
+                out = XOR(out, tmp_input)
+                output_data.extend(out)
+                i += 16
+                length -= 16
+            self.mode = DECRYPT
+            self.sk = self.sk[::-1]
+        return output_data
+
+    def sm4_crypt_cfb(self, iv, input_data):
+        """
+        SM4-CFB buffer encryption/decryption
+        :param iv:
+        :param input_data:
+        :return:
+        """
+        length = len(input_data)
+        i = 0
+        output_data = []
+        if self.mode == ENCRYPT:
+            while length > 0:
+                tmp_input = input_data[i:i + 16]
+                out = self.sm4_one_round(self.sk, iv)
+                iv = XOR(tmp_input, out)
+                output_data.extend(iv)
+                i += 16
+                length -= 16
+        else:
+            self.mode = ENCRYPT
+            self.sk = self.sk[::-1]
+            while length > 0:
+                tmp_input = input_data[i:i + 16]
+                out = self.sm4_one_round(self.sk, iv)
+                out = XOR(out, tmp_input)
+                iv = tmp_input
+                output_data.extend(out)
+                i += 16
+                length -= 16
+            self.mode = DECRYPT
+            self.sk = self.sk[::-1]
+        return output_data
+
 
 def sm4_crypt_ecb(mode, key, data):
     sm4_d = Sm4()
@@ -186,6 +282,28 @@ def sm4_crypt_cbc(mode, key, iv, data):
     sm4_d.sm4_set_key(key, mode)
     en_data = sm4_d.sm4_crypt_cbc(iv, data)
     return en_data
+
+
+def sm4_crypt_pcbc(mode, key, iv, data):
+    sm4_d = Sm4()
+    sm4_d.sm4_set_key(key, mode)
+    en_data = sm4_d.sm4_crypt_pcbc(iv, data)
+    return en_data
+
+
+def sm4_crypt_cfb(mode, key, iv, data):
+    sm4_d = Sm4()
+    sm4_d.sm4_set_key(key, mode)
+    en_data = sm4_d.sm4_crypt_cfb(iv, data)
+    return en_data
+
+
+def sm4_crypt_ofb(mode, key, iv, data):
+    sm4_d = Sm4()
+    sm4_d.sm4_set_key(key, mode)
+    en_data = sm4_d.sm4_crypt_ofb(iv, data)
+    return en_data
+
 
 
 SM4 = Sm4

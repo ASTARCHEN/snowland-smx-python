@@ -9,8 +9,11 @@
 
 
 from functools import reduce
-from random import choices
-from pysmx.SM3 import KDF
+from random import choices, randint
+from pysmx.SM3 import KDF, SM3
+from collections import namedtuple
+
+
 
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
@@ -32,8 +35,33 @@ letterlist = "0123456789abcdef"
 # Fp = 192
 
 
+def modular_power(a, n, p):  # a^m%p
+    """
+    原文：https://blog.csdn.net/qq_36921652/article/details/79368299
+    """
+    if n == 0:
+        return 1
+    elif n == 1:
+        return a % p
+    temp = a * a % p
+    if n & 1:
+        return a % p * modular_power(temp, n // 2, p) % p
+    else:
+        return (modular_power(temp, n // 2, p)) % p
+
+
+def isPrime(number: (str, int), itor=10):
+    if not isinstance(number, int):
+        number = int(number)
+    for i in range(itor):
+        a = randint(1, number-1)
+        if modular_power(a, number - 1, number) != 1:
+            return False
+    return True
+
+
 def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
-    f = eval(algorithm_name + '()')
+    f = eval(algorithm_name.upper() + '()')
     if Hexstr:
         message = bytes.fromhex(message)
     if isinstance(message, (bytes, bytearray)):
@@ -72,7 +100,7 @@ def DoublePoint(Point, len_para, P=sm2_P):
     """
     l = len(Point)
     len_2 = 2 * len_para
-    if l < len_para * 2:
+    if l < len_2:
         return None
     else:
         x1 = int(Point[0:len_para], 16)
@@ -228,7 +256,8 @@ def Sign(E, DA, K, len_para, Hexstr=0):  # 签名函数, E消息的hash，DA私�
         return None
     d_1 = pow(d + 1, sm2_N - 2, sm2_N)
     S = (d_1 * (k + R) - R) % sm2_N
-    return '%064x%064x' % (R, S) if S else None
+    s = '%0{}x%0{}x'.format(len_para, len_para) % (R, S) if S else None
+    return s
 
 
 def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
@@ -283,7 +312,7 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
 
 
 def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):  # 解密函数，C密文（16进制字符串），DA私钥
-    f = eval(hash_algorithm + '()')
+    f = eval(hash_algorithm.upper() + '()')
     len_2 = 2 * len_para
     len_3 = len_2 + f.block_size
     C1 = C[0:len_2]
@@ -314,27 +343,37 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'): 
         u = get_hash(hash_algorithm, '%s%s%s' % (x2, M, y2), 1)
         return M if u == C3 else None
 
+KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
+
+def generate_keypair(len_param=int(Fp // 4)):
+    d = get_random_str(len_para)
+    PA = kG(int(d, 16), sm2_G, len_param)
+    return KeyPair(PA, d)
+
 
 if __name__ == '__main__':
-    len_para = int(Fp / 4)
-    print(len_para)
+    # len_para = int(Fp // 4)
+    # print(len_para)
+    len_para = 64
     e = get_random_str(len_para)
-    d = get_random_str(len_para)
-    k = get_random_str(len_para)
+    # d = get_random_str(len_para)
+    # k = get_random_str(len_para)
     # e = '656E6372797074696F6E207374616E64617264'
     # d = '3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8'
     # k = '58892B807074F53FBF67288A1DFAA1AC313455FE60355AFD'
-    Pa = kG(int(d, 16), sm2_G, len_para)
+    # Pa = kG(int(d, 16), sm2_G, len_para)
     hash_algorithm = 'sm3'
-    Sig = Sign(e, d, k, len_para, 1)
-    print(Verify(Sig, e, Pa, len_para))
-    print(Pa)
+    # Sig = Sign(e, d, k, len_para, 1)
+    # print(Verify(Sig, e, Pa, len_para))
+    pk, sk = generate_keypair(len_para)
+    sig = Sign(e, sk, '12345678', len_para, 1)
+    print(Verify(sig, e, pk, len_para))
     e = "你好"
     print('M = %s' % e)
-    C = Encrypt(e, Pa, len_para, 0, hash_algorithm=hash_algorithm)
+    C = Encrypt(e, pk, len_para, 0, hash_algorithm=hash_algorithm)
     print('C = %s' % C)
     print('Decrypt')
-    m = Decrypt(C, d, len_para, hash_algorithm=hash_algorithm)
+    m = Decrypt(C, sk, len_para, hash_algorithm=hash_algorithm)
     M = bytes.fromhex(m)
     print(M.decode())
 
