@@ -4,10 +4,11 @@
 # @contact: astar@snowland.ltd
 # @site: www.snowland.ltd
 # @file: __init__.py.py
-# @time: 2018/11/18 22:30
+# @time: 2019/3/21 11:35
 # @Software: PyCharm
 
 
-from pysmx.SM2._SM2 import (
-    Sign, Verify, Encrypt, Decrypt, generate_keypair, KeyPair
-)
+__author__ = 'A.Star'
+
+if __name__ == '__main__':
+    pass

@@ -205,7 +205,7 @@ def Inverse(data, M, len_para):  # 求逆，可用pow（）代替
     return tempA
 
 
-def Verify(Sign, E, PA, len_para):
+def Verify(Sign, E, PA, len_para, Hexstr=0, encoding='utf-8'):
     """
     验签函数
     :param Sign: 签名 r||s
@@ -216,7 +216,13 @@ def Verify(Sign, E, PA, len_para):
     """
     r = int(Sign[0:len_para], 16)
     s = int(Sign[len_para:2 * len_para], 16)
-    e = int(E, 16)
+    if Hexstr:
+        e = int(E, 16)  # 输入消息本身是16进制字符串
+    else:
+        if isinstance(E, str):
+            E = E.encode(encoding)
+        E = E.hex()  # 消息转化为16进制字符串
+        e = int(E, 16)
     t = (r + s) % sm2_N
     if t == 0:
         return 0
@@ -237,11 +243,12 @@ def Verify(Sign, E, PA, len_para):
     return r == ((e + x) % sm2_N)
 
 
-def Sign(E, DA, K, len_para, Hexstr=0):  # 签名函数, E消息的hash，DA私钥，K随机数，均为16进制字符串
+def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):  # 签名函数, E消息的hash，DA私钥，K随机数，均为16进制字符串
     if Hexstr:
         e = int(E, 16)  # 输入消息本身是16进制字符串
     else:
-        E = E.encode('utf-8')
+        if isinstance(E, str):
+            E = E.encode(encoding)
         E = E.hex()  # 消息转化为16进制字符串
         e = int(E, 16)
 
@@ -345,41 +352,7 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'): 
 
 KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
 
-def generate_keypair(len_param=int(Fp // 4)):
-    d = get_random_str(len_para)
+def generate_keypair(len_param=64):
+    d = get_random_str(len_param)
     PA = kG(int(d, 16), sm2_G, len_param)
     return KeyPair(PA, d)
-
-
-if __name__ == '__main__':
-    # len_para = int(Fp // 4)
-    # print(len_para)
-    len_para = 64
-    e = get_random_str(len_para)
-    # d = get_random_str(len_para)
-    # k = get_random_str(len_para)
-    # e = '656E6372797074696F6E207374616E64617264'
-    # d = '3945208F7B2144B13F36E38AC6D39F95889393692860B51A42FB81EF4DF7C5B8'
-    # k = '58892B807074F53FBF67288A1DFAA1AC313455FE60355AFD'
-    # Pa = kG(int(d, 16), sm2_G, len_para)
-    hash_algorithm = 'sm3'
-    # Sig = Sign(e, d, k, len_para, 1)
-    # print(Verify(Sig, e, Pa, len_para))
-    pk, sk = generate_keypair(len_para)
-    sig = Sign(e, sk, '12345678', len_para, 1)
-    print(Verify(sig, e, pk, len_para))
-    e = "你好"
-    print('M = %s' % e)
-    C = Encrypt(e, pk, len_para, 0, hash_algorithm=hash_algorithm)
-    print('C = %s' % C)
-    print('Decrypt')
-    m = Decrypt(C, sk, len_para, hash_algorithm=hash_algorithm)
-    M = bytes.fromhex(m)
-    print(M.decode())
-
-    # e  = '00ce5d9489d867867096326f3842323ab0a2f7f893181bae4dc9d4cd7ed50f31'
-    # D  = '1d06dc143f1725f7eeae8a0ae94ebc62fbe4407c99a90950e46d29e7645000cb'
-    # K  = '8e00000000000000000000000000000000000000000000000000000000000000'
-    # Px = '000000000000000000000000000000000000000000000000f100000000000000'
-    # Py = '0000000000000000000000000000000000000000000000000000000000000000'
-    # print(Verify(D+K, e, Px+Py, len_para))

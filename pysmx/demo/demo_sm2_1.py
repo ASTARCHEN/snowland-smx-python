@@ -10,7 +10,15 @@
 import time
 from pysmx.SM3 import SM3Type, digest, KDF
 from pysmx.crypto.hashlib import pbkdf2_hmac
+from collections import namedtuple
 if __name__ == '__main__':
+    from pysmx.SM2 import generate_keypair
+    KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
+    key = generate_keypair()
+    pk = key.publicKey
+    sk = key.privateKey
+    print("sk:", sk)
+    print("pk:", pk)
     a = bytes("abc"*10000, encoding='utf8')
     st = time.clock()
     y = digest(a)
