@@ -311,11 +311,12 @@ SM4 = Sm4
 if __name__ == "__main__":
     # log_init()
     import numpy as np
-    key_data = [0x5a] * 16
     input_data = list(np.random.randint(256, size=1024*6))
     iv_data = [0] * 16
     time.clock()
     sm4_d = Sm4()
+    key_data = b'hello world, errr...'
+    # key_data = [0x5a] * 16
     sm4_d.sm4_set_key(key_data, ENCRYPT)
     st = time.clock()
     en_data = sm4_d.sm4_crypt_ecb(input_data)

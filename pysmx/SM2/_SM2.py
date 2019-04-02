@@ -272,15 +272,19 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     加密函数
     :param M: 消息
     :param PA: PA公钥
-    :param len_para:
-    :param Hexstr:
+    :param len_para: 目前固定为64
+    :param Hexstr: M是否是hex字符串
+    :param encoding: 若M不是16进制字符串
     :param hash_algorithm:
     :return:
     """
     if Hexstr:
         msg = M  # 输入消息本身是16进制字符串
     else:
-        msg = M.encode(encoding)
+        if isinstance(M, str):
+            msg = M.encode(encoding)
+        else:
+            msg = M
         msg = msg.hex()  # 消息转化为16进制字符串
 
     k = get_random_str(len_para)
@@ -350,7 +354,9 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'): 
         u = get_hash(hash_algorithm, '%s%s%s' % (x2, M, y2), 1)
         return M if u == C3 else None
 
+
 KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
+
 
 def generate_keypair(len_param=64):
     d = get_random_str(len_param)

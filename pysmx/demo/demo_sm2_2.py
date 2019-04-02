@@ -18,7 +18,8 @@ from random import choices
 
 
 def get_random_str(k):
-    return ''.join(choices(letterlist, k))
+    return ''.join(choices(letterlist, k=k))
+
 
 
 if __name__ == '__main__':
@@ -30,7 +31,7 @@ if __name__ == '__main__':
     pk, sk = generate_keypair(len_para)
     sig = Sign("你好", sk, '12345678', len_para)
     print(Verify(sig, "你好", pk, len_para))
-    e = "你好"
+    e = b"hello"
     print('M = %s' % e)
     C = Encrypt(e, pk, len_para, 0, hash_algorithm=hash_algorithm)
     print('C = %s' % C)
