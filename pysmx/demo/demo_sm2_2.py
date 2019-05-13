@@ -10,16 +10,15 @@
 
 __author__ = 'A.Star'
 
-
 from pysmx.SM2 import *
-letterlist = "0123456789abcdef"
 
 from random import choices
+letterlist = "0123456789abcdef"
+
 
 
 def get_random_str(k):
     return ''.join(choices(letterlist, k=k))
-
 
 
 if __name__ == '__main__':
@@ -37,7 +36,10 @@ if __name__ == '__main__':
     print('C = %s' % C)
     print('Decrypt')
     m = Decrypt(C, sk, len_para, hash_algorithm=hash_algorithm)
-    M = bytes.fromhex(m)
+    assert m is not None
+    M = m
+    assert e == M.decode()
+
     print(M.decode())
 
     # e  = '00ce5d9489d867867096326f3842323ab0a2f7f893181bae4dc9d4cd7ed50f31'

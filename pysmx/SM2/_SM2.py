@@ -13,12 +13,11 @@ from random import choices, randint
 from pysmx.SM3 import KDF, SM3
 from collections import namedtuple
 
-
-
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
 sm2_P = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF', 16)
 sm2_G = '32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0'  # G点
+sm2_G_number = int(sm2_G, 16)
 sm2_a = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFC', 16)
 sm2_b = int('28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93', 16)
 sm2_a_3 = (sm2_a + 3) % sm2_P  # 倍点用到的中间值
@@ -35,10 +34,9 @@ letterlist = "0123456789abcdef"
 # Fp = 192
 
 
-def modular_power(a, n, p):  # a^m%p
+def modular_power(a, n, p):
     """
-    原文：https://blog.csdn.net/qq_36921652/article/details/79368299
-    """
+    计算a^ n % p
     if n == 0:
         return 1
     elif n == 1:
@@ -48,13 +46,16 @@ def modular_power(a, n, p):  # a^m%p
         return a % p * modular_power(temp, n // 2, p) % p
     else:
         return (modular_power(temp, n // 2, p)) % p
+    原文：https://blog.csdn.net/qq_36921652/article/details/79368299
+    """
+    return pow(a, n, p)
 
 
-def isPrime(number: (str, int), itor=10):
+def is_prime(number: (str, int), itor=10):
     if not isinstance(number, int):
         number = int(number)
     for i in range(itor):
-        a = randint(1, number-1)
+        a = randint(1, number - 1)
         if modular_power(a, number - 1, number) != 1:
             return False
     return True
@@ -62,6 +63,7 @@ def isPrime(number: (str, int), itor=10):
 
 def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
     f = eval(algorithm_name.upper() + '()')
+
     if Hexstr:
         message = bytes.fromhex(message)
     if isinstance(message, (bytes, bytearray)):
@@ -71,8 +73,8 @@ def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
     return f.hexdigest()
 
 
-def get_random_str(strlen=64):
-    return ''.join(choices(letterlist, k=strlen))
+def get_random_str(n: int = 64):
+    return ''.join(choices(letterlist, k=n))
 
 
 def kG(k, Point, len_para):
@@ -98,14 +100,14 @@ def DoublePoint(Point, len_para, P=sm2_P):
     :param P:
     :return:
     """
-    l = len(Point)
+    length = len(Point)
     len_2 = 2 * len_para
-    if l < len_2:
+    if length < len_2:
         return None
     else:
         x1 = int(Point[0:len_para], 16)
         y1 = int(Point[len_para:len_2], 16)
-        z1 = 1 if l == len_2 else int(Point[len_2:], 16)
+        z1 = 1 if length == len_2 else int(Point[len_2:], 16)
         T6 = (z1 * z1) % P
         T2 = (y1 * y1) % P
         T3 = (x1 + T6) % P
@@ -131,7 +133,11 @@ def DoublePoint(Point, len_para, P=sm2_P):
         return form % (x3, y3, z3)
 
 
-def AddPoint(P1, P2, len_para, P=sm2_P):  # 点加函数，P2点为仿射坐标即z=1，P1为Jacobian加重射影坐标
+def AddPoint(P1, P2, len_para, P=sm2_P):
+    """点加函数
+    :param P1 为Jacobian加重射影坐标
+    :param P2 为仿射坐标即z=1
+    """
     len_2 = 2 * len_para
     l1 = len(P1)
     l2 = len(P2)
@@ -168,7 +174,8 @@ def AddPoint(P1, P2, len_para, P=sm2_P):  # 点加函数，P2点为仿射坐标�
         return form % (X3, Y3, Z3)
 
 
-def ConvertJacb2Nor(Point, len_para, P=sm2_P):  # Jacobian加重射影坐标转换成仿射坐标
+def ConvertJacb2Nor(Point, len_para, P=sm2_P):
+    """Jacobian加重射影坐标转换成仿射坐标"""
     len_2 = 2 * len_para
     x = int(Point[0:len_para], 16)
     y = int(Point[len_para:len_2], 16)
@@ -189,7 +196,8 @@ def ConvertJacb2Nor(Point, len_para, P=sm2_P):  # Jacobian加重射影坐标转�
         return None
 
 
-def Inverse(data, M, len_para):  # 求逆，可用pow（）代替
+def Inverse(data, M, len_para=64):
+    """ 求逆, 可用pow（）代替"""
     tempM = M - 2
     mask_str = '8' + '0' * (len_para - 1)
     mask = int(mask_str, 16)
@@ -205,7 +213,7 @@ def Inverse(data, M, len_para):  # 求逆，可用pow（）代替
     return tempA
 
 
-def Verify(Sign, E, PA, len_para, Hexstr=0, encoding='utf-8'):
+def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     """
     验签函数
     :param Sign: 签名 r||s
@@ -214,8 +222,13 @@ def Verify(Sign, E, PA, len_para, Hexstr=0, encoding='utf-8'):
     :param len_para:
     :return:
     """
-    r = int(Sign[0:len_para], 16)
-    s = int(Sign[len_para:2 * len_para], 16)
+    if isinstance(Sign, str):
+        r = int(Sign[0:len_para], 16)
+        s = int(Sign[len_para:2 * len_para], 16)
+    elif isinstance(Sign, bytes):
+        r = int(Sign.hex()[:len_para], 16)
+        s = int(Sign.hex()[len_para:2 * len_para], 16)
+
     if Hexstr:
         e = int(E, 16)  # 输入消息本身是16进制字符串
     else:
@@ -243,7 +256,12 @@ def Verify(Sign, E, PA, len_para, Hexstr=0, encoding='utf-8'):
     return r == ((e + x) % sm2_N)
 
 
-def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):  # 签名函数, E消息的hash，DA私钥，K随机数，均为16进制字符串
+def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):
+    """签名函数
+     :param E 消息的hash, 16进制字符串
+     :param DA私钥, 16进制字符串
+     :param K 随机数, 16进制字符串
+     """
     if Hexstr:
         e = int(E, 16)  # 输入消息本身是16进制字符串
     else:
@@ -257,14 +275,14 @@ def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):  # 签名函数, E消�
 
     P1 = kG(k, sm2_G, len_para)
 
-    x = int(P1[0:len_para], 16)
-    R = ((e + x) % sm2_N)
+    x = int(P1[:len_para], 16)
+    R = (e + x) % sm2_N
     if R == 0 or R + k == sm2_N:
         return None
     d_1 = pow(d + 1, sm2_N - 2, sm2_N)
     S = (d_1 * (k + R) - R) % sm2_N
     s = '%0{}x%0{}x'.format(len_para, len_para) % (R, S) if S else None
-    return s
+    return bytes.fromhex(s)
 
 
 def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
@@ -319,13 +337,23 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
         # print('%s%s%s'% (x2,msg,y2))
         C3 = get_hash(hash_algorithm, '%s%s%s' % (x2, msg, y2), Hexstr=1)
         # print('C3 = %s' % C3)
-        return '%s%s%s' % (C1, C3, C2)
+        return bytes.fromhex('%s%s%s' % (C1, C3, C2))
 
 
-def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):  # 解密函数，C密文（16进制字符串），DA私钥
+def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
+    """
+    解密函数，
+    :param C 密文（16进制字符串）
+    :param DA 私钥
+    :param len_para 长度，目前只支持64
+    """
     f = eval(hash_algorithm.upper() + '()')
     len_2 = 2 * len_para
     len_3 = len_2 + f.block_size
+    if not Hexstr:
+        if isinstance(C, bytes):
+            C = C.hex()
+
     C1 = C[0:len_2]
     C3 = C[len_2:len_3]
     C2 = C[len_3:]
@@ -352,7 +380,7 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'): 
         # print('M = %s' % M)
 
         u = get_hash(hash_algorithm, '%s%s%s' % (x2, M, y2), 1)
-        return M if u == C3 else None
+        return bytes.fromhex(M) if u == C3 else None
 
 
 KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
