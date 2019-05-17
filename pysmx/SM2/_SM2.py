@@ -10,7 +10,8 @@
 
 from functools import reduce
 from random import choices, randint
-from pysmx.SM3 import KDF, SM3
+from pysmx.SM3 import KDF
+from pysmx.crypto import hashlib
 from collections import namedtuple
 
 # 选择素域，设置椭圆曲线参数
@@ -62,8 +63,10 @@ def is_prime(number: (str, int), itor=10):
 
 
 def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
-    f = eval(algorithm_name.upper() + '()')
-
+    if hasattr(hashlib, algorithm_name):
+        f = getattr(hashlib, algorithm_name)()
+    else:
+        raise ValueError('method does not exists')
     if Hexstr:
         message = bytes.fromhex(message)
     if isinstance(message, (bytes, bytearray)):
@@ -236,6 +239,13 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
             E = E.encode(encoding)
         E = E.hex()  # 消息转化为16进制字符串
         e = int(E, 16)
+
+    if isinstance(PA, str):
+        pass
+    elif isinstance(PA, (bytes, bytearray)):
+        PA = PA.hex()
+    else:
+        raise ValueError('Typeof PA must be string or bytes')
     t = (r + s) % sm2_N
     if t == 0:
         return 0
@@ -269,8 +279,12 @@ def Sign(E, DA, K, len_para, Hexstr=0, encoding='utf-8'):
             E = E.encode(encoding)
         E = E.hex()  # 消息转化为16进制字符串
         e = int(E, 16)
-
-    d = int(DA, 16)
+    if isinstance(DA, str):
+        d = int(DA, 16)
+    elif isinstance(DA, (bytes, bytearray)):
+        d = int(DA.hex(), 16)
+    else:
+        raise ValueError('DA must be str or bytes')
     k = int(K, 16)
 
     P1 = kG(k, sm2_G, len_para)
@@ -304,7 +318,12 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
         else:
             msg = M
         msg = msg.hex()  # 消息转化为16进制字符串
-
+    if isinstance(PA, str):
+        pass
+    elif isinstance(PA, (bytes, bytearray)):
+        PA = PA.hex()
+    else:
+        raise ValueError('Typeof PA must be string or bytes')
     k = get_random_str(len_para)
     # k = '59276E27D506861A16680F3AD9C02DCCEF3CC1FA3CDBE4CE6D54B80DEAC1BC21'
     # k = '384F30353073AEECE7A1654330A96204D37982A3E15B2CB5'
@@ -315,19 +334,7 @@ def Encrypt(M, PA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     x2 = xy[0:len_para]
     y2 = xy[len_para:2 * len_para]
     ml = len(msg)
-    # print('ml = %d'% ml)
-    if hash_algorithm == 'sm3':
-        t = KDF(xy, ml / 2)
-    else:
-        t = get_hash(hash_algorithm, M)
-        # bytet = pbkdf2_hmac(hash_algorithm,
-        #                 bytes(M, encoding=encoding),
-        #                 iterations=ml//2,
-        #                 salt=b''
-        #                 )
-        # t = "".join(["%08x"% each for each in bytet])
-        # raise FutureWarning('the function will be fixed in the future')
-    # print(t)
+    t = KDF(xy, ml / 2)
     if int(t, 16) == 0:
         return None
     else:
@@ -347,9 +354,15 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     :param DA 私钥
     :param len_para 长度，目前只支持64
     """
-    f = eval(hash_algorithm.upper() + '()')
+    f = getattr(hashlib, hash_algorithm)()
+    if isinstance(DA, str):
+        pass
+    elif isinstance(DA, (bytes, bytearray)):
+        DA = DA.hex()
+    else:
+        raise ValueError('DA must be str or bytes')
     len_2 = 2 * len_para
-    len_3 = len_2 + f.block_size
+    len_3 = len_2 + f.digest_size * 2
     if not Hexstr:
         if isinstance(C, bytes):
             C = C.hex()
@@ -363,15 +376,7 @@ def Decrypt(C, DA, len_para, Hexstr=0, encoding='utf-8', hash_algorithm='sm3'):
     y2 = xy[len_para:len_2]
     cl = len(C2)
     # print(cl)
-    if hash_algorithm == 'sm3':
-        t = KDF(xy, cl / 2)
-    else:
-        t = get_hash(hash_algorithm, xy, Hexstr=1)
-        # bytet = pbkdf2_hmac(hash_algorithm, bytes.fromhex(xy), iterations=cl // 2, salt=b'', dklen=None)
-        # t = "".join(["%08x"% each for each in bytet])
-        # raise FutureWarning('the function will be fixed in the future')
-    # t = SM3.KDF(xy, cl / 2)
-    # print('t = %s'%t)
+    t = KDF(xy, cl / 2)
     if int(t, 16) == 0:
         return None
     else:
@@ -389,4 +394,7 @@ KeyPair = namedtuple('KeyPair', ['publicKey', 'privateKey'])
 def generate_keypair(len_param=64):
     d = get_random_str(len_param)
     PA = kG(int(d, 16), sm2_G, len_param)
-    return KeyPair(PA, d)
+    return KeyPair(bytes.fromhex(PA), bytes.fromhex(d))
+
+if __name__ == '__main__':
+    print(generate_keypair(64))

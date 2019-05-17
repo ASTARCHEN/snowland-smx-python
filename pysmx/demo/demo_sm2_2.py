@@ -38,7 +38,7 @@ if __name__ == '__main__':
     m = Decrypt(C, sk, len_para, hash_algorithm=hash_algorithm)
     assert m is not None
     M = m
-    assert e == M.decode()
+    assert e == M or e == M.decode()
 
     print(M.decode())
 
