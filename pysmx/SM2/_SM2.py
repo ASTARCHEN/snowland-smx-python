@@ -14,6 +14,12 @@ from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
 from collections import namedtuple
 
+from numpy.random import choice as choices
+from pysmx import SM3
+from functools import reduce
+import time
+import random
+
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
 sm2_P = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF', 16)
@@ -395,6 +401,7 @@ def generate_keypair(len_param=64):
     d = get_random_str(len_param)
     PA = kG(int(d, 16), sm2_G, len_param)
     return KeyPair(bytes.fromhex(PA), bytes.fromhex(d))
+
 
 if __name__ == '__main__':
     print(generate_keypair(64))
