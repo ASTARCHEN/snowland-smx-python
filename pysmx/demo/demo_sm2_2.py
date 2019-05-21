@@ -13,12 +13,12 @@ __author__ = 'A.Star'
 from pysmx.SM2 import *
 
 from random import choices
+
 letterlist = "0123456789abcdef"
 
 
-
-def get_random_str(k):
-    return ''.join(choices(letterlist, k=k))
+def get_random_str(k, allow_chars=letterlist):
+    return ''.join(choices(allow_chars, k=k))
 
 
 if __name__ == '__main__':
