@@ -13,8 +13,6 @@ from random import choices, randint
 from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
 from collections import namedtuple
-
-from numpy.random import choice as choices
 from pysmx import SM3
 from functools import reduce
 import time
@@ -39,6 +37,9 @@ letterlist = "0123456789abcdef"
 # sm2_b = int('1854BEBDC31B21B7AEFC80AB0ECD10D5B1B3308E6DBF11C1',16)
 # sm2_a_3 = (sm2_a + 3) % sm2_P # 倍点用到的中间值
 # Fp = 192
+
+def get_random_str(n: int, allow_chars: str = letterlist):
+    return ''.join(choices(allow_chars, k=n))
 
 
 def modular_power(a, n, p):
@@ -80,10 +81,6 @@ def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
     else:
         f.update(bytes(message, encoding=encoding))
     return f.hexdigest()
-
-
-def get_random_str(n: int = 64):
-    return ''.join(choices(letterlist, k=n))
 
 
 def kG(k, Point, len_para):

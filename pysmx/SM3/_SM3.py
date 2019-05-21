@@ -13,6 +13,7 @@ import numpy as np
 from functools import reduce
 from copy import deepcopy, copy
 import struct
+from numba import jit
 
 npa = np.array
 
@@ -20,20 +21,22 @@ BIT_BLOCK_H = npa([0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xFF])
 BIT_BLOCK_L = npa([0x0, 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF])
 BIT_EACH = npa([1, 2, 4, 8, 16, 32, 64, 128, 256])
 BIT_EACH_32 = npa([1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144,
-               524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456,
-               536870912, 1073741824, 2147483648, 4294967296])
+                   524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456,
+                   536870912, 1073741824, 2147483648, 4294967296])
 IV = "7380166f 4914b2b9 172442d7 da8a0600 a96f30bc 163138aa e38dee4d b0fb0e4e"
 IV = int(IV.replace(" ", ""), 16)
-IV = [(IV >> ((7 - i) * 32)) & 0xFFFFFFFF for i in range(8)]
+IV = npa([(IV >> ((7 - i) * 32)) & 0xffffffff for i in range(8)], dtype=np.uint32)
 
 
 def rotate_left(a, k):
     k %= 32
-    high, low = divmod(a, BIT_EACH_32[32 - k])
+    high, low = np.divmod(a, BIT_EACH_32[32 - k])
     return high + low * BIT_EACH_32[k]
+
 
 T_j = npa([0x79cc4519] * 16 + [0x7a879d8a] * 48)
 T_j_rotate_left = [rotate_left(Tj, j) for j, Tj in enumerate(T_j)]
+
 
 def FF_j(X, Y, Z, j):
     # 已经融合到内部了
@@ -46,18 +49,18 @@ def GG_j(X, Y, Z, j):
 
 
 def P_0(X):
-    high, low = divmod(X, BIT_EACH_32[23])
+    high, low = np.divmod(X, BIT_EACH_32[23])
     r_l_9 = high + low * BIT_EACH_32[9]
-    high, low = divmod(X, BIT_EACH_32[15])
+    high, low = np.divmod(X, BIT_EACH_32[15])
     r_l_17 = high + low * BIT_EACH_32[17]
     # return X ^ (rotate_left(X, 9)) ^ (rotate_left(X, 17))
     return X ^ r_l_9 ^ r_l_17
 
 
 def P_1(X):
-    high, low = divmod(X, BIT_EACH_32[17])
+    high, low = np.divmod(X, BIT_EACH_32[17])
     r_l_15 = high + low * BIT_EACH_32[15]
-    high, low = divmod(X, BIT_EACH_32[9])
+    high, low = np.divmod(X, BIT_EACH_32[9])
     r_l_23 = high + low * BIT_EACH_32[23]
     return X ^ r_l_15 ^ r_l_23
 
@@ -67,106 +70,164 @@ def PUT_UINT32_BE(n):
 
 
 def __cf_reduce_16_64(V_i, j, W=None):
-    high_A12, low_A12 = divmod(V_i[0], BIT_EACH_32[20])
+    high_A12, low_A12 = np.divmod(V_i[0], BIT_EACH_32[20])
     r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
-    high, low = divmod((r_l_12 + V_i[4] + T_j_rotate_left[j]) & 0xFFFFFFFF, BIT_EACH_32[25])
+    high, low = np.divmod((r_l_12 + V_i[4] + T_j_rotate_left[j]) & 0xffffffff, BIT_EACH_32[25])
     SS1 = high + low * BIT_EACH_32[7]
     SS2 = SS1 ^ r_l_12
     # FF
-    TT1 = (((V_i[0] & V_i[1]) | (V_i[0] & V_i[2]) | (V_i[1] & V_i[2])) + V_i[3] + SS2 + (W[j] ^ W[j + 4])) & 0xFFFFFFFF
+    TT1 = (((V_i[0] & V_i[1]) | (V_i[0] & V_i[2]) | (V_i[1] & V_i[2])) + V_i[3] + SS2 + (W[j] ^ W[j + 4])) & 0xffffffff
     # GG
-    TT2 = (((V_i[4] & V_i[5]) | ((~ V_i[4]) & V_i[6])) + V_i[7] + SS1 + W[j]) & 0xFFFFFFFF
-    high_B9, low_B9 = divmod(V_i[1], BIT_EACH_32[23])
-    high_F19, low_F19 = divmod(V_i[5], BIT_EACH_32[13])
+    TT2 = (((V_i[4] & V_i[5]) | ((~ V_i[4]) & V_i[6])) + V_i[7] + SS1 + W[j]) & 0xffffffff
+    high_B9, low_B9 = np.divmod(V_i[1], BIT_EACH_32[23])
+    high_F19, low_F19 = np.divmod(V_i[5], BIT_EACH_32[13])
     return [TT1, V_i[0], high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, V_i[2], P_0(TT2) & 0xffffffff, \
             V_i[4], high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, V_i[6]]
 
 
 def __cf_reduce_0_16(V_i, j, W=None):
-    high_A12, low_A12 = divmod(V_i[0], BIT_EACH_32[20])
+    high_A12, low_A12 = np.divmod(V_i[0], BIT_EACH_32[20])
     r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
-    high, low = divmod((r_l_12 + V_i[4] + T_j_rotate_left[j]) & 0xFFFFFFFF, BIT_EACH_32[25])
+    high, low = np.divmod((r_l_12 + V_i[4] + T_j_rotate_left[j]) & 0xffffffff, BIT_EACH_32[25])
     SS1 = high + low * BIT_EACH_32[7]
     SS2 = SS1 ^ r_l_12
     # FF
-    TT1 = ((V_i[0] ^ V_i[1] ^ V_i[2]) + V_i[3] + SS2 + (W[j] ^ W[j + 4])) & 0xFFFFFFFF
+    TT1 = ((V_i[0] ^ V_i[1] ^ V_i[2]) + V_i[3] + SS2 + (W[j] ^ W[j + 4])) & 0xffffffff
     # GG
-    TT2 = ((V_i[4] ^ V_i[5] ^ V_i[6]) + V_i[7] + SS1 + W[j]) & 0xFFFFFFFF
-    high_B9, low_B9 = divmod(V_i[1], BIT_EACH_32[23])
-    high_F19, low_F19 = divmod(V_i[5], BIT_EACH_32[13])
-    high, low = divmod(TT2, BIT_EACH_32[23])
+    TT2 = ((V_i[4] ^ V_i[5] ^ V_i[6]) + V_i[7] + SS1 + W[j]) & 0xffffffff
+    high_B9, low_B9 = np.divmod(V_i[1], BIT_EACH_32[23])
+    high_F19, low_F19 = np.divmod(V_i[5], BIT_EACH_32[13])
+    high, low = np.divmod(TT2, BIT_EACH_32[23])
     r_l_9 = high + low * BIT_EACH_32[9]
-    high, low = divmod(TT2, BIT_EACH_32[15])
+    high, low = np.divmod(TT2, BIT_EACH_32[15])
     r_l_17 = high + low * BIT_EACH_32[17]
     return [TT1, V_i[0], high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, V_i[2], (TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, \
             V_i[4], high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, V_i[6]]
 
 
 def CF(V_i, B_i):
-    W = [(B_i[ind] * BIT_EACH_32[24]) + (B_i[ind + 1] * BIT_EACH_32[16]) + (B_i[ind + 2] * BIT_EACH_32[8]) + (
-        B_i[ind + 3]) for ind in range(0, 64, 4)]
-    for j in range(16, 68):
-        high_W3_15, low_W3_15 = divmod(W[-3], BIT_EACH_32[17])
-        high_W13_7, low_W13_7 = divmod(W[-13], BIT_EACH_32[25])
+    weight = BIT_EACH_32[24::-8]
+    B_i = B_i.reshape((len(B_i) // 4, 4))
+    W = np.append(B_i.dot(weight), np.zeros(52, dtype=np.int64))
+    for j in np.arange(16, 68):
+        high_W3_15, low_W3_15 = np.divmod(W[j - 3], BIT_EACH_32[17])
+        high_W13_7, low_W13_7 = np.divmod(W[j - 13], BIT_EACH_32[25])
+        # P_1
+        X = W[j - 16] ^ W[j - 9] ^ (high_W3_15 + low_W3_15 * BIT_EACH_32[15])
+        high_P1_15, low_P1_15 = np.divmod(X, BIT_EACH_32[17])
+        r_l_15 = high_P1_15 + low_P1_15 * BIT_EACH_32[15]
+        high_P1_23, low_P1_23 = np.divmod(X, BIT_EACH_32[9])
+        r_l_23 = high_P1_23 + low_P1_23 * BIT_EACH_32[23]
+        W[j] = (X ^ r_l_15 ^ r_l_23 ^ (high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[j - 6])
+
+    W_1 = W[:-4] ^ W[4:]
+    A, B, C, D, E, F, G, H = V_i
+    for j in np.arange(0, 16):
+        high_A12, low_A12 = np.divmod(A, BIT_EACH_32[20])
+        r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
+        high, low = np.divmod((r_l_12 + E + T_j_rotate_left[j]) & 0xffffffff, BIT_EACH_32[25])
+        SS1 = high + low * BIT_EACH_32[7]
+        SS2 = SS1 ^ r_l_12
+        # FF
+        TT1 = ((A ^ B ^ C) + D + SS2 + W_1[j]) & 0xffffffff
+        # GG
+        TT2 = ((E ^ F ^ G) + H + SS1 + W[j]) & 0xffffffff
+        high_B9, low_B9 = np.divmod(B, BIT_EACH_32[23])
+        high_F19, low_F19 = np.divmod(F, BIT_EACH_32[13])
+        high, low = np.divmod(TT2, BIT_EACH_32[23])
+        r_l_9 = high + low * BIT_EACH_32[9]
+        high, low = np.divmod(TT2, BIT_EACH_32[15])
+        r_l_17 = high + low * BIT_EACH_32[17]
+        A, B, C, D, E, F, G, H = TT1, A, high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, C, (
+                TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
+    for j in np.arange(16, 64):
+        high_A12, low_A12 = np.divmod(A, BIT_EACH_32[20])
+        r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
+        high, low = np.divmod((r_l_12 + E + T_j_rotate_left[j]) & 0xffffffff, BIT_EACH_32[25])
+        SS1 = high + low * BIT_EACH_32[7]
+        SS2 = SS1 ^ r_l_12
+        # FF
+        TT1 = (((A & B) | (A & C) | (B & C)) + D + SS2 + W_1[j]) & 0xffffffff
+        # GG
+        TT2 = (((E & F) | ((~ E) & G)) + H + SS1 + W[j]) & 0xffffffff
+        high_B9, low_B9 = np.divmod(B, BIT_EACH_32[23])
+        high_F19, low_F19 = np.divmod(F, BIT_EACH_32[13])
+        high, low = np.divmod(TT2, BIT_EACH_32[23])
+        r_l_9 = high + low * BIT_EACH_32[9]
+        high, low = np.divmod(TT2, BIT_EACH_32[15])
+        r_l_17 = high + low * BIT_EACH_32[17]
+        A, B, C, D, E, F, G, H = TT1, A, high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, C, (
+                TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
+    return npa((A, B, C, D, E, F, G, H)) ^ V_i
+
+
+def CF_7(V_i, B_i):
+    weight = BIT_EACH_32[24::-8]
+    B_i = B_i.reshape((len(B_i) // 4, 4))
+    W = B_i.dot(weight)
+    for j in np.arange(16, 68):
+        high_W3_15, low_W3_15 = np.divmod(W[-3], BIT_EACH_32[17])
+        high_W13_7, low_W13_7 = np.divmod(W[-13], BIT_EACH_32[25])
         # P_1
         X = W[- 16] ^ W[- 9] ^ (high_W3_15 + low_W3_15 * BIT_EACH_32[15])
-        high_P1_15, low_P1_15 = divmod(X, BIT_EACH_32[17])
+        high_P1_15, low_P1_15 = np.divmod(X, BIT_EACH_32[17])
         r_l_15 = high_P1_15 + low_P1_15 * BIT_EACH_32[15]
-        high_P1_23, low_P1_23 = divmod(X, BIT_EACH_32[9])
+        high_P1_23, low_P1_23 = np.divmod(X, BIT_EACH_32[9])
         r_l_23 = high_P1_23 + low_P1_23 * BIT_EACH_32[23]
         # return X ^ (rotate_left(X, 15)) ^ (rotate_left(X, 23))
-        W.append(X ^ r_l_15 ^ r_l_23 ^ (high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
+        W = np.append(W, X ^ r_l_15 ^ r_l_23 ^ (high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
+        # W.append(X ^ r_l_15 ^ r_l_23 ^ (high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
+
         # W.append(P_1(W[- 16] ^ W[- 9] ^ (high_W3_15 + low_W3_15 * BIT_EACH_32[15])) ^ (
         #         high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
-    W_1 = [W[j] ^ W[j + 4] for j in range(64)]
+    W_1 = W[:-4] ^ W[4:]
     A, B, C, D, E, F, G, H = V_i
-    for j in range(0, 16):
-        high_A12, low_A12 = divmod(A, BIT_EACH_32[20])
+    for j in np.arange(0, 16):
+        high_A12, low_A12 = np.divmod(A, BIT_EACH_32[20])
         r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
-        high, low = divmod((r_l_12 + E + T_j_rotate_left[j]) & 0xFFFFFFFF, BIT_EACH_32[25])
+        high, low = np.divmod((r_l_12 + E + T_j_rotate_left[j]) & 0xffffffff, BIT_EACH_32[25])
         SS1 = high + low * BIT_EACH_32[7]
         SS2 = SS1 ^ r_l_12
         # Wj = (B_i[ind] * BIT_EACH_32[24]) + (B_i[ind + 1] * BIT_EACH_32[16]) + (B_i[ind + 2] * BIT_EACH_32[8]) + (B_i[ind + 3])
         # FF
-        TT1 = ((A ^ B ^ C) + D + SS2 + W_1[j]) & 0xFFFFFFFF
+        TT1 = ((A ^ B ^ C) + D + SS2 + W_1[j]) & 0xffffffff
         # GG
-        TT2 = ((E ^ F ^ G) + H + SS1 + W[j]) & 0xFFFFFFFF
-        high_B9, low_B9 = divmod(B, BIT_EACH_32[23])
-        high_F19, low_F19 = divmod(F, BIT_EACH_32[13])
-        high, low = divmod(TT2, BIT_EACH_32[23])
+        TT2 = ((E ^ F ^ G) + H + SS1 + W[j]) & 0xffffffff
+        high_B9, low_B9 = np.divmod(B, BIT_EACH_32[23])
+        high_F19, low_F19 = np.divmod(F, BIT_EACH_32[13])
+        high, low = np.divmod(TT2, BIT_EACH_32[23])
         r_l_9 = high + low * BIT_EACH_32[9]
-        high, low = divmod(TT2, BIT_EACH_32[15])
+        high, low = np.divmod(TT2, BIT_EACH_32[15])
         r_l_17 = high + low * BIT_EACH_32[17]
         A, B, C, D, E, F, G, H = TT1, A, high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, C, (
-                    TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
-    for j in range(16, 64):
-        high_A12, low_A12 = divmod(A, BIT_EACH_32[20])
+                TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
+    for j in np.arange(16, 64):
+        high_A12, low_A12 = np.divmod(A, BIT_EACH_32[20])
         r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
-        high, low = divmod((r_l_12 + E + T_j_rotate_left[j]) & 0xFFFFFFFF, BIT_EACH_32[25])
+        high, low = np.divmod((r_l_12 + E + T_j_rotate_left[j]) & 0xffffffff, BIT_EACH_32[25])
         SS1 = high + low * BIT_EACH_32[7]
         SS2 = SS1 ^ r_l_12
         # FF
-        TT1 = (((A & B) | (A & C) | (B & C)) + D + SS2 + W_1[j]) & 0xFFFFFFFF
+        TT1 = (((A & B) | (A & C) | (B & C)) + D + SS2 + W_1[j]) & 0xffffffff
         # GG
-        TT2 = (((E & F) | ((~ E) & G)) + H + SS1 + W[j]) & 0xFFFFFFFF
-        high_B9, low_B9 = divmod(B, BIT_EACH_32[23])
-        high_F19, low_F19 = divmod(F, BIT_EACH_32[13])
-        high, low = divmod(TT2, BIT_EACH_32[23])
+        TT2 = (((E & F) | ((~ E) & G)) + H + SS1 + W[j]) & 0xffffffff
+        high_B9, low_B9 = np.divmod(B, BIT_EACH_32[23])
+        high_F19, low_F19 = np.divmod(F, BIT_EACH_32[13])
+        high, low = np.divmod(TT2, BIT_EACH_32[23])
         r_l_9 = high + low * BIT_EACH_32[9]
-        high, low = divmod(TT2, BIT_EACH_32[15])
+        high, low = np.divmod(TT2, BIT_EACH_32[15])
         r_l_17 = high + low * BIT_EACH_32[17]
         A, B, C, D, E, F, G, H = TT1, A, high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, C, (
-                    TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
-    return [A ^ V_i[0], B ^ V_i[1], C ^ V_i[2],
-            D ^ V_i[3], E ^ V_i[4], F ^ V_i[5], G ^ V_i[6], H ^ V_i[7]]
+                TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
+    return npa((A, B, C, D, E, F, G, H)) ^ V_i
 
 
 def CF2(V_i, B_i):
     W = [(B_i[ind] * BIT_EACH_32[24]) + (B_i[ind + 1] * BIT_EACH_32[16]) + (B_i[ind + 2] * BIT_EACH_32[8]) + (
         B_i[ind + 3]) for ind in range(0, 64, 4)]
     for j in range(16, 68):
-        high_W3_15, low_W3_15 = divmod(W[-3], BIT_EACH_32[17])
-        high_W13_7, low_W13_7 = divmod(W[-13], BIT_EACH_32[25])
+        high_W3_15, low_W3_15 = np.divmod(W[-3], BIT_EACH_32[17])
+        high_W13_7, low_W13_7 = np.divmod(W[-13], BIT_EACH_32[25])
         W.append(P_1(W[- 16] ^ W[- 9] ^ (high_W3_15 + low_W3_15 * BIT_EACH_32[15])) ^ (
                 high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
     V_i_1 = reduce(lambda a, b: __cf_reduce_0_16(a, b, W), range(0, 16), V_i.copy())
@@ -180,8 +241,8 @@ def CF3(V_i, B_i):
         B_i[ind + 3]) for ind in range(0, 64, 4)]
     for j in range(16, 68):
         # a = (P_1(W[- 16] ^ W[- 9] ^ (rotate_left(W[- 3], 15))) ^ (rotate_left(W[- 13], 7)) ^ W[- 6])
-        high_W3_15, low_W3_15 = divmod(W[-3], BIT_EACH_32[17])
-        high_W13_7, low_W13_7 = divmod(W[-13], BIT_EACH_32[25])
+        high_W3_15, low_W3_15 = np.divmod(W[-3], BIT_EACH_32[17])
+        high_W13_7, low_W13_7 = np.divmod(W[-13], BIT_EACH_32[25])
         W.append(P_1(W[- 16] ^ W[- 9] ^ (high_W3_15 + low_W3_15 * BIT_EACH_32[15])) ^ (
                 high_W13_7 + low_W13_7 * BIT_EACH_32[7]) ^ W[- 6])
     V_i_1 = reduce(lambda a, b: __cf_reduce_0_16(a, b, W), range(0, 16), V_i.copy())
@@ -195,39 +256,12 @@ def digest(msg, Hexstr=0):
         pass
     else:
         msg = hex2byte(msg) if Hexstr else str2bytes(msg)
-    W = np.empty(68, dtype=np.int64)
-    W[:16] = npa(
-        [(B_i[ind] << 24) + (B_i[ind + 1] << 16) + (B_i[ind + 2] << 8) + (B_i[ind + 3]) for ind in range(0, 64, 4)])
-    for j in range(16, 68):
-        W[j] = (P_1(W[j - 16] ^ W[j - 9] ^ (rotate_left(W[j - 3], 15))) ^ (rotate_left(W[j - 13], 7)) ^ W[j - 6])
-    W_1 = W[:64] ^ W[4:]
-    A, B, C, D, E, F, G, H = V_i
-    for j in range(0, 64):
-        SS1 = rotate_left(((rotate_left(A, 12)) + E + (rotate_left(T_j[j], j))) & 0xFFFFFFFF, 7)
-        SS2 = SS1 ^ (rotate_left(A, 12))
-        TT1 = (FF_j(A, B, C, j) + D + SS2 + W_1[j]) & 0xFFFFFFFF
-        TT2 = (GG_j(E, F, G, j) + H + SS1 + W[j]) & 0xFFFFFFFF
-        A, B, C, D, E, F, G, H = TT1, A, rotate_left(B, 9) & 0xffffffff, C, P_0(
-            TT2) & 0xffffffff, E, rotate_left(F, 19) & 0xffffffff, G
-    return npa([A, B, C, D, E, F, G, H]) ^ V_i
-
-
-def hash_msg(msg):
-    # print(msg)
-    msg = npa(list(msg))
     len1 = len(msg)
-    msg = np.append(msg, 0x80)
     reserve1 = len1 % 64 + 1
     range_end = 56 if reserve1 <= 56 else 120
-    msg = np.append(msg, [0] * (range_end - reserve1))
     bit_length = len1 * 8
-    msg.extend(struct.pack(">Q", bit_length))
-    bit_length_str = []
-    for i in range(8):
-        bit_length, t = divmod(bit_length, 0x100)
-        bit_length_str.insert(0, t)
-    msg = np.append(msg, bit_length_str)
-    # print(msg)
+    msg = np.hstack((msg, 0x80, np.zeros(range_end - reserve1, dtype=np.uint8), list(struct.pack(">Q", bit_length))))
+    # B = (msg[i:i + 64] for i in range(0, len(msg), 64))
     B = msg.reshape((len(msg) // 64, 64))
     y = reduce(CF, B, IV)
     b = bytearray()
@@ -239,7 +273,7 @@ def hash_msg(msg):
     return digest(msg, 0).hex()
 
 
-def str2bytes(msg:str, encoding='utf-8'):
+def str2bytes(msg: str, encoding='utf-8'):
     """
     字符串转换成byte数组
     :param msg: 信息串
@@ -273,6 +307,7 @@ def hex2byte(msg):
         msg = '0' + msg
     return list(bytes.fromhex(msg))
 
+
 def Hash_sm3(msg, Hexstr=0):
     msg_byte = hex2byte(msg) if Hexstr else str2bytes(msg)
     return hash_msg(msg_byte)
@@ -291,7 +326,7 @@ def _BKDF(Z, klen: int):
     rcnt = int(np.ceil(klen / 32))
     Zin = hex2byte(Z)
     b = bytearray()
-    (b.extend(digest(Zin + PUT_UINT32_BE(ct), 0)) for ct in range(1, rcnt + 1))
+    [b.extend(digest(Zin + PUT_UINT32_BE(ct), 0)) for ct in range(1, rcnt + 1)]
     return b[:klen]
 
 
