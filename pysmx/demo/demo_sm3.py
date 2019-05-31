@@ -13,7 +13,7 @@ __author__ = 'A.Star'
 import hashlib
 from pysmx.crypto import hashlib as sm3hashlib
 import time
-s = b'abc'*1024
+s = b'abc'
 # s = bytes.fromhex(''.join(['%02x' % i for i in range(256)])) * 1024 * 10
 
 starttime = time.clock()

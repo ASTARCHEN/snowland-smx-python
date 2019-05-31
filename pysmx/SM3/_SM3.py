@@ -244,8 +244,6 @@ def hex2byte(msg):
     ml = len(msg)
     if (ml & 1) != 0:
         msg = '0' + msg
-    import binascii
-    binascii.b2a_hex(msg)
     return list(bytes.fromhex(msg))
 
 
@@ -267,7 +265,7 @@ def _BKDF(Z, klen: int):
     rcnt = int(ceil(klen / 32))
     Zin = hex2byte(Z)
     b = bytearray()
-    (b.extend(digest(Zin + PUT_UINT32_BE(ct), 0)) for ct in range(1, rcnt + 1))
+    [b.extend(digest(Zin + PUT_UINT32_BE(ct), 0)) for ct in range(1, rcnt + 1)]
     return b[:klen]
 
 
