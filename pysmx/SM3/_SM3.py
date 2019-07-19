@@ -137,7 +137,7 @@ def CF(V_i, B_i):
         high, low = divmod(TT2, BIT_EACH_32[15])
         r_l_17 = high + low * BIT_EACH_32[17]
         A, B, C, D, E, F, G, H = TT1, A, high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, C, (
-                    TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
+                TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
     for j in range(16, 64):
         high_A12, low_A12 = divmod(A, BIT_EACH_32[20])
         r_l_12 = high_A12 + low_A12 * BIT_EACH_32[12]
@@ -155,7 +155,7 @@ def CF(V_i, B_i):
         high, low = divmod(TT2, BIT_EACH_32[15])
         r_l_17 = high + low * BIT_EACH_32[17]
         A, B, C, D, E, F, G, H = TT1, A, high_B9 + low_B9 * BIT_EACH_32[9] & 0xffffffff, C, (
-                    TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
+                TT2 ^ r_l_9 ^ r_l_17) & 0xffffffff, E, high_F19 + low_F19 * BIT_EACH_32[19] & 0xffffffff, G
     return [A ^ V_i[0], B ^ V_i[1], C ^ V_i[2],
             D ^ V_i[3], E ^ V_i[4], F ^ V_i[5], G ^ V_i[6], H ^ V_i[7]]
 
@@ -212,7 +212,7 @@ def hash_msg(msg):
     return digest(msg, 0).hex()
 
 
-def str2bytes(msg:str, encoding='utf-8'):
+def str2bytes(msg: str, encoding='utf-8'):
     """
     字符串转换成byte数组
     :param msg: 信息串

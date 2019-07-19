@@ -10,6 +10,7 @@
 # coding=utf-8
 
 from setuptools import setup, find_packages
+from astartool.setuptool import load_install_requires
 import pysmx
 
 setup(
@@ -41,6 +42,5 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Topic :: Software Development :: Libraries'
     ],
-    install_requires=[
-    ],
+    install_requires=load_install_requires(),
 )

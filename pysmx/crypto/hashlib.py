@@ -31,7 +31,7 @@ def __get_builtin_constructor(name):
         return constructor
     try:
         if name in ('sm3', 'SM3'):
-            from pysmx.SM3._SM3 import SM3Type
+            from pysmx.SM3 import SM3Type
             cache['SM3'] = cache['sm3'] = SM3Type
         elif name in ('SHA1', 'sha1'):
             import _sha1

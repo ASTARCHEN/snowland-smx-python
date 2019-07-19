@@ -13,7 +13,7 @@ from random import choices, randint
 from pysmx.SM3 import KDF
 from pysmx.crypto import hashlib
 from collections import namedtuple
-
+from astartool.random import random_hex_string
 # 选择素域，设置椭圆曲线参数
 sm2_N = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123', 16)
 sm2_P = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF', 16)
@@ -23,7 +23,6 @@ sm2_a = int('FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFC', 
 sm2_b = int('28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93', 16)
 sm2_a_3 = (sm2_a + 3) % sm2_P  # 倍点用到的中间值
 Fp = 256
-letterlist = "0123456789abcdef"
 
 
 # sm2_N = int('BDB6F4FE3E8B1D9E0DA8C0D40FC962195DFAE76F56564677', 16)
@@ -77,7 +76,7 @@ def get_hash(algorithm_name, message, Hexstr=0, encoding='utf-8'):
 
 
 def get_random_str(n: int = 64):
-    return ''.join(choices(letterlist, k=n))
+    return random_hex_string(n)
 
 
 def kG(k, Point, len_para):
@@ -111,22 +110,15 @@ def DoublePoint(Point, len_para, P=sm2_P):
         x1 = int(Point[0:len_para], 16)
         y1 = int(Point[len_para:len_2], 16)
         z1 = 1 if length == len_2 else int(Point[len_2:], 16)
-        T6 = (z1 * z1) % P
-        T2 = (y1 * y1) % P
-        T3 = (x1 + T6) % P
-        T4 = (x1 - T6) % P
-        T1 = (T3 * T4) % P
-        T3 = (y1 * z1) % P
+        T6, T2 = (z1 * z1) % P, (y1 * y1) % P
+        T3, T4 = (x1 + T6) % P,(x1 - T6) % P
+        T1, T3 = (T3 * T4) % P, (y1 * z1) % P
         T4 = (T2 * 8) % P
         T5 = (x1 * T4) % P
-        T1 = (T1 * 3) % P
-        T6 = (T6 * T6) % P
-        T6 = (sm2_a_3 * T6) % P
+        T1, T6 = (T1 * 3) % P, (sm2_a_3 * T6 * T6) % P
         T1 = (T1 + T6) % P
-        z3 = (T3 + T3) % P
-        T3 = (T1 * T1) % P
-        T2 = (T2 * T4) % P
-        x3 = (T3 - T5) % P
+        z3, T3 = (T3 + T3) % P, (T1 * T1) % P
+        T2, x3 = (T2 * T4) % P, (T3 - T5) % P
         T4 = (T5 + ((T5 + P) >> 1) - T3) % P if T5 % 2 else (T5 + (T5 >> 1) - T3) % P
         T1 = (T1 * T4) % P
         y3 = (T1 - T2) % P
@@ -142,32 +134,19 @@ def AddPoint(P1, P2, len_para, P=sm2_P):
     :param P2 为仿射坐标即z=1
     """
     len_2 = 2 * len_para
-    l1 = len(P1)
-    l2 = len(P2)
+    l1, l2 = len(P1), len(P2)
     if (l1 < len_2) or (l2 < len_2):
         return None
     else:
-        X1 = int(P1[0:len_para], 16)
-        Y1 = int(P1[len_para:len_2], 16)
+        X1, Y1 = int(P1[0:len_para], 16), int(P1[len_para:len_2], 16)
         Z1 = 1 if l1 == len_2 else int(P1[len_2:], 16)
-        x2 = int(P2[0:len_para], 16)
-        y2 = int(P2[len_para:len_2], 16)
-
-        T1 = (Z1 * Z1) % P
-        T2 = (y2 * Z1) % P
-        T3 = (x2 * T1) % P
-        T1 = (T1 * T2) % P
-        T2 = (T3 - X1) % P
-        T3 = (T3 + X1) % P
-        T4 = (T2 * T2) % P
-        T1 = (T1 - Y1) % P
-        Z3 = (Z1 * T2) % P
-        T2 = (T2 * T4) % P
-        T3 = (T3 * T4) % P
-        T5 = (T1 * T1) % P
-        T4 = (X1 * T4) % P
-        X3 = (T5 - T3) % P
-        T2 = (Y1 * T2) % P
+        x2, y2 = int(P2[0:len_para], 16), int(P2[len_para:len_2], 16)
+        T1, T2 = (Z1 * Z1) % P, (y2 * Z1) % P
+        T3, T1 = (x2 * T1) % P, (T1 * T2) % P
+        T2, T3 = (T3 - X1) % P, (T3 + X1) % P
+        T4, T1, Z3 = (T2 * T2) % P, (T1 - Y1) % P, (Z1 * T2) % P
+        T2, T3, T5 = (T2 * T4) % P, (T3 * T4) % P, (T1 * T1) % P
+        T4, X3, T2 = (X1 * T4) % P, (T5 - T3) % P, (Y1 * T2) % P
         T3 = (T4 - X3) % P
         T1 = (T1 * T3) % P
         Y3 = (T1 - T2) % P
@@ -223,6 +202,8 @@ def Verify(Sign, E, PA, len_para=64, Hexstr=0, encoding='utf-8'):
     :param E: E消息hash
     :param PA: PA公钥
     :param len_para:
+    :param Hexstr: 是否是16进制数：1:是 0:不是
+    :param encoding: 编码格式
     :return:
     """
     if isinstance(Sign, str):
