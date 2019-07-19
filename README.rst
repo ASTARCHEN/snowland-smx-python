@@ -1,8 +1,20 @@
 ===================
 snowland-smx-python
 ===================
+
+安装:
+pip 安装
+** pip install snowland-smx **
+
+或者
+
+源码安装
+** python setup.py install **
+
 1. SM2
-  国密公钥加解密签名验签
+
+国密公钥加解密签名验签
+
   a. 密钥生成
 
   >>> from pysmx.SM2 import generate_keypair
