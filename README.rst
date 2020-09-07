@@ -46,6 +46,8 @@ pip 安装
   >>> m = Decrypt(C, sk, len_para)
 
 #. SM3
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python?ref=badge_shield)
+
   国密哈希
   a. 方法1:
 
@@ -81,3 +83,7 @@ pip 安装
 
 #. ZUC
   waiting for update
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FASTARCHEN%2Fsnowland-smx-python?ref=badge_large)
